@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automation Harness</title>
+    <style>
+        body {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            margin: 0;
+            padding: 24px;
+            background: #111827;
+            color: #e5eef7;
+        }
+
+        h1 {
+            margin: 0 0 12px;
+            font-size: 20px;
+        }
+
+        .frame {
+            width: 100%;
+            height: 900px;
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 14px;
+            background: white;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+            padding: 16px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.08);
+            margin-top: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Dashboard Automation Harness</h1>
+    <iframe id="appFrame" class="frame" src="/"></iframe>
+    <pre id="result">starting...</pre>
+
+    <script>
+        const resultNode = document.getElementById("result");
+        const frame = document.getElementById("appFrame");
+
+        function writeResult(payload) {
+            resultNode.textContent = JSON.stringify(payload, null, 2);
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function waitFor(check, { timeoutMs = 90000, intervalMs = 250, label = "condition" } = {}) {
+            const started = Date.now();
+            let lastError = null;
+
+            while (Date.now() - started < timeoutMs) {
+                try {
+                    const value = check();
+                    if (value) {
+                        return value;
+                    }
+                } catch (error) {
+                    lastError = error;
+                }
+                await sleep(intervalMs);
+            }
+
+            const suffix = lastError ? ` (${String(lastError)})` : "";
+            throw new Error(`Timed out waiting for ${label}${suffix}`);
+        }
+
+        async function getDashboardContext() {
+            return waitFor(() => {
+                const doc = frame.contentDocument;
+                const win = frame.contentWindow;
+                if (!doc || !win) return null;
+                if (doc.readyState !== "complete" && doc.readyState !== "interactive") return null;
+                if (!doc.getElementById("refreshPipelineButton")) return null;
+                return { doc, win };
+            }, { timeoutMs: 30000, label: "dashboard frame" });
+        }
+
+        async function run() {
+            const startedAt = new Date().toISOString();
+            const { doc } = await getDashboardContext();
+
+            await waitFor(
+                () => doc.querySelectorAll("#jobs .job-card, #jobs .empty").length > 0,
+                { timeoutMs: 30000, label: "initial jobs render" }
+            );
+            await waitFor(
+                () => doc.querySelectorAll("#artifactsPanel .artifact-card, #artifactsPanel .empty").length > 0,
+                { timeoutMs: 30000, label: "initial artifact render" }
+            );
+
+            const initial = {
+                title: doc.title,
+                refreshButton: !!doc.getElementById("refreshPipelineButton"),
+                jobs: doc.querySelectorAll("#jobs .job-card").length,
+                artifacts: doc.querySelectorAll("#artifactsPanel .artifact-card").length,
+                status: doc.getElementById("statusLine")?.textContent?.trim() || "",
+            };
+
+            const refreshButton = doc.getElementById("refreshPipelineButton");
+            refreshButton?.click();
+
+            await waitFor(
+                () => doc.getElementById("refreshPipelineButton") && doc.getElementById("refreshPipelineButton").disabled,
+                { timeoutMs: 10000, label: "refresh to start" }
+            );
+
+            const completionStatus = await waitFor(() => {
+                const status = doc.getElementById("statusLine")?.textContent?.trim() || "";
+                const button = doc.getElementById("refreshPipelineButton");
+                if (!button) return null;
+                if (button.disabled) return null;
+                if (status.includes("Refresh complete.") || status.includes("Upload a resume")) {
+                    return status;
+                }
+                return null;
+            }, { timeoutMs: 120000, intervalMs: 500, label: "refresh completion" });
+
+            const previewButton = await waitFor(
+                () => doc.querySelector("#artifactsPanel .artifact-card button"),
+                { timeoutMs: 30000, label: "preview button" }
+            );
+            previewButton.click();
+
+            const previewFrame = await waitFor(
+                () => doc.querySelector("#previewBody iframe"),
+                { timeoutMs: 30000, label: "preview iframe" }
+            );
+            await waitFor(
+                () => previewFrame.getAttribute("src"),
+                { timeoutMs: 15000, label: "preview iframe src" }
+            );
+            await sleep(1500);
+
+            const finalState = {
+                finishedAt: new Date().toISOString(),
+                refreshDone: completionStatus.includes("Refresh complete."),
+                status: completionStatus,
+                jobs: doc.querySelectorAll("#jobs .job-card").length,
+                artifacts: doc.querySelectorAll("#artifactsPanel .artifact-card").length,
+                runLastRefresh: doc.getElementById("runLastRefresh")?.textContent?.trim() || "",
+                runNewJobs: doc.getElementById("runNewJobs")?.textContent?.trim() || "",
+                runGenerated: doc.getElementById("runGenerated")?.textContent?.trim() || "",
+                previewPresent: !!doc.querySelector("#previewBody iframe"),
+                previewSrc: doc.querySelector("#previewBody iframe")?.getAttribute("src") || "",
+                previewMeta: doc.getElementById("previewMeta")?.textContent?.trim() || "",
+                firstJobTitle: doc.querySelector("#jobs .job-card h3")?.textContent?.trim() || "",
+                firstArtifactTitle: doc.querySelector("#artifactsPanel .artifact-card h3")?.textContent?.trim() || "",
+            };
+
+            writeResult({ startedAt, initial, finalState });
+        }
+
+        run().catch(error => writeResult({ error: String(error), stack: error?.stack || "" }));
+    </script>
+</body>
+</html>

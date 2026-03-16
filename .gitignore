@@ -1,0 +1,15 @@
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+*.log
+
+data/generated_resumes/
+data/reports/
+data/uploads/
+data/resume_profile.json
+data/tailored_resumes.json
+
+scraped_jobs.json
+last_scrape.json
+job_tracker.json

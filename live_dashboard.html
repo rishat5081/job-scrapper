@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Intelligence System</title>
+    <style>
+        :root {
+            --ink: #16212b;
+            --muted: #546372;
+            --line: rgba(22, 33, 43, 0.12);
+            --paper: #fffaf3;
+            --panel: rgba(255, 255, 255, 0.84);
+            --panel-strong: rgba(255, 255, 255, 0.94);
+            --accent: #0e7c7b;
+            --accent-2: #d97d54;
+            --accent-3: #f0b429;
+            --danger: #b94a48;
+            --success: #1f8a5b;
+            --shadow: 0 18px 48px rgba(16, 30, 46, 0.14);
+            --radius: 22px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Avenir Next", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top left, rgba(240, 180, 41, 0.18), transparent 28%),
+                radial-gradient(circle at top right, rgba(14, 124, 123, 0.18), transparent 32%),
+                linear-gradient(180deg, #fdf6ea 0%, #f7efe1 52%, #eef6f3 100%);
+        }
+
+        .page {
+            max-width: 1460px;
+            margin: 0 auto;
+            padding: 28px 20px 44px;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, rgba(255, 250, 243, 0.92), rgba(255, 255, 255, 0.8));
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 30px;
+            box-shadow: var(--shadow);
+            padding: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::after {
+            content: "";
+            position: absolute;
+            inset: auto -90px -90px auto;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(14, 124, 123, 0.22), rgba(14, 124, 123, 0));
+        }
+
+        .eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 14px;
+            background: rgba(14, 124, 123, 0.1);
+            color: var(--accent);
+            border-radius: 999px;
+            font-size: 13px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-bottom: 14px;
+        }
+
+        h1, h2, h3 {
+            font-family: "Iowan Old Style", "Palatino Linotype", serif;
+            margin: 0;
+        }
+
+        h1 {
+            font-size: clamp(1.7rem, 3.2vw, 2.9rem);
+            line-height: 1.08;
+            max-width: 760px;
+        }
+
+        .hero p {
+            color: var(--muted);
+            max-width: 900px;
+            font-size: 1.04rem;
+            line-height: 1.6;
+            margin: 16px 0 0;
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1.1fr 1fr;
+            gap: 20px;
+            margin-top: 22px;
+        }
+
+        .toolbar-card,
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.72);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
+
+        .toolbar-card {
+            padding: 20px;
+        }
+
+        .toolbar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .button-large {
+            padding: 14px 22px;
+            font-weight: 700;
+        }
+
+        .control-stack {
+            display: grid;
+            gap: 14px;
+        }
+
+        .run-strip {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .run-chip {
+            border-radius: 18px;
+            padding: 14px;
+            background: rgba(255,255,255,0.9);
+            border: 1px solid rgba(22, 33, 43, 0.08);
+        }
+
+        .run-chip strong {
+            display: block;
+            font-size: 1.1rem;
+            margin-top: 4px;
+        }
+
+        .button,
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        .button {
+            appearance: none;
+            border: none;
+            cursor: pointer;
+            padding: 12px 18px;
+            border-radius: 999px;
+            transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px rgba(16, 30, 46, 0.12);
+        }
+
+        .button-primary {
+            color: white;
+            background: linear-gradient(135deg, var(--accent), #125e7a);
+        }
+
+        .button-secondary {
+            color: var(--ink);
+            background: rgba(255, 255, 255, 0.92);
+            border: 1px solid rgba(22, 33, 43, 0.12);
+        }
+
+        .button-warm {
+            color: white;
+            background: linear-gradient(135deg, var(--accent-2), #c56139);
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+            margin-top: 24px;
+        }
+
+        .stat {
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,255,255,0.82));
+            border: 1px solid rgba(22, 33, 43, 0.07);
+            border-radius: 20px;
+            padding: 18px;
+        }
+
+        .stat-value {
+            font-family: "Iowan Old Style", "Palatino Linotype", serif;
+            font-size: 2rem;
+            margin-bottom: 6px;
+        }
+
+        .stat-label {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1.55fr 0.9fr;
+            gap: 22px;
+            margin-top: 24px;
+        }
+
+        .panel {
+            padding: 22px;
+        }
+
+        .panel-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+
+        .subtle {
+            color: var(--muted);
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .filters {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr 0.8fr;
+            gap: 12px;
+            margin: 14px 0 20px;
+        }
+
+        .quick-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: -4px 0 18px;
+        }
+
+        .quick-filter {
+            border: 1px solid rgba(22, 33, 43, 0.1);
+            background: rgba(255,255,255,0.9);
+            color: var(--ink);
+            padding: 8px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 160ms ease;
+        }
+
+        .quick-filter:hover,
+        .quick-filter.active {
+            background: linear-gradient(135deg, rgba(14, 124, 123, 0.14), rgba(18, 94, 122, 0.1));
+            color: var(--accent);
+            border-color: rgba(14, 124, 123, 0.25);
+        }
+
+        input,
+        select {
+            width: 100%;
+            border: 1px solid var(--line);
+            background: rgba(255,255,255,0.88);
+            border-radius: 16px;
+            padding: 12px 14px;
+            color: var(--ink);
+        }
+
+        .jobs {
+            display: grid;
+            gap: 14px;
+        }
+
+        .jobs-toolbar,
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .jobs-toolbar {
+            margin-bottom: 14px;
+        }
+
+        .jobs-summary {
+            color: var(--muted);
+            font-size: 0.88rem;
+        }
+
+        .page-size {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .page-size select {
+            width: auto;
+            min-width: 86px;
+            padding: 10px 12px;
+        }
+
+        .pagination {
+            margin-top: 18px;
+        }
+
+        .pagination-pages {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .page-button {
+            min-width: 42px;
+            padding: 10px 14px;
+            border-radius: 999px;
+        }
+
+        .page-button.active {
+            color: white;
+            background: linear-gradient(135deg, var(--accent), #125e7a);
+        }
+
+        .page-button:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .job-card,
+        .source-card,
+        .artifact-card,
+        .profile-card {
+            border-radius: 18px;
+            border: 1px solid rgba(22, 33, 43, 0.08);
+            background: rgba(255, 255, 255, 0.88);
+            padding: 18px;
+        }
+
+        .job-card {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .job-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 6px;
+            background: linear-gradient(180deg, var(--accent), var(--accent-3));
+        }
+
+        .job-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0 0;
+        }
+
+        .pill {
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            background: rgba(14, 124, 123, 0.1);
+            color: var(--accent);
+        }
+
+        .pill.today {
+            background: rgba(240, 180, 41, 0.18);
+            color: #9a6400;
+        }
+
+        .pill.fresh {
+            background: rgba(31, 138, 91, 0.14);
+            color: var(--success);
+        }
+
+        .score {
+            min-width: 72px;
+            text-align: center;
+            border-radius: 18px;
+            padding: 10px 12px;
+            color: white;
+            background: linear-gradient(135deg, #1f8a5b, #0e7c7b);
+        }
+
+        .score.low {
+            background: linear-gradient(135deg, #d97d54, #b94a48);
+        }
+
+        .job-card p {
+            color: var(--muted);
+            line-height: 1.55;
+            margin: 12px 0 0;
+        }
+
+        .job-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 14px;
+        }
+
+        .stack {
+            display: grid;
+            gap: 16px;
+        }
+
+        .upload-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .upload-row input[type="file"] {
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.92);
+        }
+
+        .tiny {
+            font-size: 0.82rem;
+            color: var(--muted);
+        }
+
+        .source-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 12px;
+        }
+
+        .source-status {
+            font-size: 0.77rem;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            padding: 6px 8px;
+            border-radius: 999px;
+        }
+
+        .source-enabled {
+            background: rgba(31, 138, 91, 0.12);
+            color: var(--success);
+        }
+
+        .source-disabled {
+            background: rgba(217, 125, 84, 0.14);
+            color: var(--accent-2);
+        }
+
+        .artifact-card h3,
+        .job-card h3 {
+            font-size: 1.12rem;
+        }
+
+        .artifact-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 12px;
+            border-radius: 999px;
+            background: rgba(14, 124, 123, 0.1);
+            color: var(--accent);
+            text-decoration: none;
+            font-size: 0.88rem;
+            font-weight: 700;
+        }
+
+        .artifact-inline {
+            margin-top: 14px;
+            padding: 12px;
+            border-radius: 16px;
+            background: rgba(14, 124, 123, 0.08);
+            border: 1px solid rgba(14, 124, 123, 0.12);
+        }
+
+        .artifact-inline.low {
+            background: rgba(217, 125, 84, 0.08);
+            border-color: rgba(217, 125, 84, 0.18);
+        }
+
+        .artifact-inline-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1.25fr 0.75fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .hero-note {
+            border-radius: 22px;
+            padding: 18px;
+            background: rgba(255,255,255,0.76);
+            border: 1px solid rgba(255,255,255,0.8);
+        }
+
+        .preview-card {
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(250,252,251,0.98), rgba(244,248,247,0.92));
+            border: 1px solid rgba(22, 33, 43, 0.08);
+            overflow: hidden;
+        }
+
+        .preview-head {
+            padding: 18px 18px 12px;
+            border-bottom: 1px solid rgba(22, 33, 43, 0.08);
+            background: rgba(255,255,255,0.62);
+        }
+
+        .preview-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .preview-body {
+            padding: 0;
+            min-height: 440px;
+            background: linear-gradient(180deg, #dfeceb 0%, #edf4f3 100%);
+        }
+
+        .preview-empty {
+            min-height: 440px;
+            display: grid;
+            place-items: center;
+            padding: 26px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .preview-frame {
+            width: 100%;
+            min-height: 440px;
+            border: 0;
+            background: white;
+        }
+
+        .artifact-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .issues {
+            margin-top: 12px;
+            color: var(--danger);
+            font-size: 0.9rem;
+        }
+
+        .warnings {
+            margin-top: 12px;
+            color: #8a5a1f;
+            font-size: 0.9rem;
+        }
+
+        .empty {
+            padding: 20px;
+            border-radius: 18px;
+            border: 1px dashed rgba(22, 33, 43, 0.18);
+            color: var(--muted);
+            background: rgba(255,255,255,0.58);
+        }
+
+        .automation-result {
+            display: none;
+            margin-top: 18px;
+            padding: 16px;
+            border-radius: 18px;
+            border: 1px solid rgba(22, 33, 43, 0.08);
+            background: rgba(255,255,255,0.86);
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--ink);
+            font-size: 0.85rem;
+        }
+
+        .automation-result.active {
+            display: block;
+        }
+
+        @media (max-width: 1100px) {
+            .toolbar,
+            .layout,
+            .hero-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 720px) {
+            .page {
+                padding: 18px 14px 30px;
+            }
+
+            .hero,
+            .panel,
+            .toolbar-card,
+            .hero-note {
+                padding: 18px;
+                border-radius: 22px;
+            }
+
+            .filters {
+                grid-template-columns: 1fr;
+            }
+
+            .job-top,
+            .panel-title,
+            .source-head {
+                flex-direction: column;
+                align-items: start;
+            }
+
+            .run-strip {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <section class="hero">
+            <div class="eyebrow">Governed Job Intake + Tailored Resume PDFs</div>
+            <h1>Scrape what is safely automated, rank what fits, and generate a job-specific resume for every selected role.</h1>
+            <p>
+                This system keeps a visible catalog of major boards, only runs enabled ingestion connectors by default, parses your uploaded resume into a reusable profile, scores each job against that profile, generates a tailored resume, validates keyword coverage, and exports the result as a PDF.
+            </p>
+
+            <div class="hero-grid">
+                <div class="toolbar-card">
+                    <h2>Pipeline Controls</h2>
+                    <div class="subtle">Refresh the job feed, score fresh matches, and generate updated resumes in one pass.</div>
+                    <div class="control-stack">
+                        <div class="toolbar-actions">
+                            <button id="refreshPipelineButton" class="button button-primary button-large" onclick="refreshAndGenerate()">Refresh Jobs + Generate Resumes</button>
+                            <button id="scrapeButton" class="button button-secondary" onclick="triggerScrape()">Only Refresh Jobs</button>
+                            <button class="button button-warm" onclick="generateTopMatches()">Generate Top Matches</button>
+                        </div>
+                        <div id="statusLine" class="tiny">System idle.</div>
+                        <div id="runStrip" class="run-strip">
+                            <div class="run-chip">
+                                <div class="tiny">Last refresh</div>
+                                <strong id="runLastRefresh">Not run</strong>
+                            </div>
+                            <div class="run-chip">
+                                <div class="tiny">New jobs found</div>
+                                <strong id="runNewJobs">0</strong>
+                            </div>
+                            <div class="run-chip">
+                                <div class="tiny">Resumes generated</div>
+                                <strong id="runGenerated">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="hero-note">
+                    <h2>Resume Intake</h2>
+                    <div class="subtle">Supported best-effort extraction: `txt`, `md`, `doc`, `docx`, `rtf`, `odt`, and `pdf` via text extraction fallback.</div>
+                    <div class="upload-row">
+                        <input id="resumeFile" type="file" accept=".txt,.md,.doc,.docx,.rtf,.odt,.pdf">
+                        <button class="button button-primary" onclick="uploadResume()">Upload Resume</button>
+                    </div>
+                    <div class="tiny" style="margin-top: 12px;">The tailoring engine only uses skills and claims already evidenced in your uploaded resume.</div>
+                    <div class="tiny" style="margin-top: 10px;">The refresh button above will fetch jobs and generate resumes for the strongest current matches.</div>
+                </div>
+            </div>
+
+            <div id="stats" class="stats"></div>
+        </section>
+
+        <section class="layout">
+            <div class="panel">
+                <div class="panel-title">
+                    <div>
+                        <h2>Matched Jobs</h2>
+                    <div class="subtle">Search across job title, company, description, and tags. Match score appears after a resume is uploaded.</div>
+                    </div>
+                </div>
+
+                <div class="filters">
+                    <input id="searchInput" type="text" placeholder="Search role, stack, company, location" oninput="debouncedResetJobs()">
+                    <select id="remoteFilter" onchange="resetJobsPageAndLoad()">
+                        <option value="">All work modes</option>
+                        <option value="remote">Remote</option>
+                        <option value="onsite">On-site</option>
+                        <option value="hybrid">Hybrid</option>
+                    </select>
+                    <select id="sourceFilter" onchange="resetJobsPageAndLoad()">
+                        <option value="">All sources</option>
+                    </select>
+                </div>
+
+                <div class="quick-filters">
+                    <button class="quick-filter" data-search="aws devops" onclick="applyQuickFilter(this)">AWS / DevOps</button>
+                    <button class="quick-filter" data-search="node.js api backend" onclick="applyQuickFilter(this)">Node.js Backend</button>
+                    <button class="quick-filter" data-search="react next.js full stack" onclick="applyQuickFilter(this)">Full Stack</button>
+                    <button class="quick-filter" data-search="ai openai claude" onclick="applyQuickFilter(this)">AI Products</button>
+                    <button class="quick-filter" data-search="" onclick="clearQuickFilter(this)">Clear Focus</button>
+                </div>
+
+                <div class="jobs-toolbar">
+                    <div id="jobsSummary" class="jobs-summary">Loading jobs...</div>
+                    <label class="page-size">
+                        Jobs per page
+                        <select id="pageSizeSelect" onchange="changeJobsPerPage()">
+                            <option value="12" selected>12</option>
+                            <option value="24">24</option>
+                            <option value="36">36</option>
+                        </select>
+                    </label>
+                </div>
+
+                <div id="jobs" class="jobs"></div>
+                <div id="jobsPagination" class="pagination"></div>
+            </div>
+
+            <div class="stack">
+                <div class="panel preview-card">
+                    <div class="preview-head">
+                        <h2>Live Resume Preview</h2>
+                        <div class="subtle">Preview the current tailored PDF without leaving the dashboard.</div>
+                        <div id="previewMeta" class="preview-meta"></div>
+                    </div>
+                    <div id="previewBody" class="preview-body">
+                        <div class="preview-empty">Select a generated resume to preview it here.</div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">
+                        <div>
+                            <h2>Resume Profile</h2>
+                            <div class="subtle">Structured data extracted from the uploaded resume.</div>
+                        </div>
+                    </div>
+                    <div id="profilePanel" class="empty">No resume uploaded yet.</div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">
+                        <div>
+                            <h2>Source Catalog</h2>
+                            <div class="subtle">Enabled connectors run automatically. Other boards stay visible but disabled until an approved integration exists.</div>
+                        </div>
+                    </div>
+                    <div id="sourcesPanel" class="stack"></div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">
+                        <div>
+                            <h2>Generated Resumes</h2>
+                            <div class="subtle">Each artifact includes validation output and a downloadable PDF.</div>
+                        </div>
+                    </div>
+                    <div id="artifactsPanel" class="stack"></div>
+                </div>
+            </div>
+        </section>
+
+        <pre id="automationResult" class="automation-result"></pre>
+    </div>
+
+    <script>
+        const API_BASE = `${window.location.origin}/api`;
+        const urlParams = new URLSearchParams(window.location.search);
+        const AUTOMATION_MODE = urlParams.get("automation") === "1";
+        const AUTOMATION_DISABLE_PDF = urlParams.get("no_pdf_preview") === "1";
+        let searchTimer = null;
+        let artifactMap = {};
+        let currentJobs = [];
+        let currentJobsTotal = 0;
+        let currentJobPage = 1;
+        let currentJobTotalPages = 1;
+        let currentPreviewArtifact = null;
+
+        function setStatus(message) {
+            document.getElementById("statusLine").textContent = message;
+        }
+
+        function setRunSummary({ lastRefresh = "Not run", newJobs = 0, generated = 0 } = {}) {
+            document.getElementById("runLastRefresh").textContent = lastRefresh;
+            document.getElementById("runNewJobs").textContent = newJobs;
+            document.getElementById("runGenerated").textContent = generated;
+        }
+
+        function dateBadge(job) {
+            const posted = job.date_posted ? new Date(job.date_posted) : null;
+            if (!posted || Number.isNaN(posted.getTime())) return "";
+            const now = new Date();
+            const diffHours = (now - posted) / 36e5;
+            const sameDate = posted.toDateString() === now.toDateString();
+            if (sameDate) return `<span class="pill today">Today</span>`;
+            if (diffHours <= 24) return `<span class="pill fresh">Fresh</span>`;
+            return "";
+        }
+
+        function openPreview(artifact) {
+            currentPreviewArtifact = artifact;
+            const previewMeta = document.getElementById("previewMeta");
+            const previewBody = document.getElementById("previewBody");
+            previewMeta.innerHTML = `
+                <span class="pill">${artifact.title}</span>
+                <span class="pill">match ${artifact.match.score}</span>
+                <span class="pill">validation ${artifact.validation.score}</span>
+                <span class="pill">${artifact.validation.fit_label || "fit unknown"}</span>
+            `;
+            if (AUTOMATION_DISABLE_PDF) {
+                previewBody.innerHTML = `
+                    <div class="preview-empty">
+                        Automation preview selected for ${artifact.title}. PDF iframe loading is disabled for this run.
+                    </div>
+                `;
+                return;
+            }
+            previewBody.innerHTML = `<iframe class="preview-frame" src="${artifact.download_url}#toolbar=0&navpanes=0&view=FitH"></iframe>`;
+        }
+
+        function openPreviewFromPayload(payload) {
+            openPreview(JSON.parse(decodeURIComponent(payload)));
+        }
+
+        function applyQuickFilter(button) {
+            document.querySelectorAll(".quick-filter").forEach(node => node.classList.remove("active"));
+            button.classList.add("active");
+            document.getElementById("searchInput").value = button.dataset.search || "";
+            currentJobPage = 1;
+            loadJobs();
+        }
+
+        function clearQuickFilter(button) {
+            document.querySelectorAll(".quick-filter").forEach(node => node.classList.remove("active"));
+            if (button) button.classList.add("active");
+            document.getElementById("searchInput").value = "";
+            currentJobPage = 1;
+            loadJobs();
+        }
+
+        function resetJobsPageAndLoad() {
+            currentJobPage = 1;
+            loadJobs();
+        }
+
+        function changeJobsPerPage() {
+            currentJobPage = 1;
+            loadJobs();
+        }
+
+        function goToJobsPage(page) {
+            if (page < 1 || page > currentJobTotalPages || page === currentJobPage) {
+                return;
+            }
+            currentJobPage = page;
+            loadJobs();
+        }
+
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, options);
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || "Request failed");
+            }
+            return data;
+        }
+
+        function scoreClass(score) {
+            return score >= 70 ? "score" : "score low";
+        }
+
+        function statsCard(value, label) {
+            return `
+                <div class="stat">
+                    <div class="stat-value">${value}</div>
+                    <div class="stat-label">${label}</div>
+                </div>
+            `;
+        }
+
+        async function loadStats() {
+            const data = await fetchJson(`${API_BASE}/stats`);
+            const stats = data.stats;
+            document.getElementById("stats").innerHTML = [
+                statsCard(stats.jobs_scraped, "Jobs in database"),
+                statsCard(stats.sources_in_catalog, "Sources in catalog"),
+                statsCard(stats.strong_matches, "Strong matches"),
+                statsCard(stats.generated_resumes, "Generated PDFs")
+            ].join("");
+        }
+
+        async function loadSources() {
+            const data = await fetchJson(`${API_BASE}/sources`);
+            const sources = data.sources;
+            const sourceFilter = document.getElementById("sourceFilter");
+            sourceFilter.innerHTML = `<option value="">All sources</option>` + sources.map(source => `
+                <option value="${source.key}">${source.name}</option>
+            `).join("");
+
+            const enabledCount = sources.filter(source => source.enabled_by_default && source.automation_allowed).length;
+            const panel = document.getElementById("sourcesPanel");
+            panel.innerHTML = `
+                <div class="tiny">Enabled automatic connectors: ${enabledCount}. Last scrape: ${data.last_scrape.last_scrape || "not yet run"}.</div>
+            ` + sources.map(source => `
+                <div class="source-card">
+                    <div class="source-head">
+                        <div>
+                            <strong>${source.name}</strong>
+                            <div class="tiny">${source.ingestion_mode.replaceAll("_", " ")}</div>
+                        </div>
+                        <span class="source-status ${source.enabled_by_default && source.automation_allowed ? "source-enabled" : "source-disabled"}">
+                            ${source.enabled_by_default && source.automation_allowed ? "enabled" : "listed only"}
+                        </span>
+                    </div>
+                    <div class="subtle" style="margin-top: 10px;">${source.notes}</div>
+                    <div class="pill-row">
+                        ${source.regions.map(region => `<span class="pill">${region}</span>`).join("")}
+                        <span class="pill">${source.supports_remote ? "remote" : "no remote"}</span>
+                        <span class="pill">${source.supports_onsite ? "on-site" : "remote-only"}</span>
+                    </div>
+                    <div class="tiny" style="margin-top: 10px;"><a href="${source.homepage}" target="_blank" rel="noreferrer">${source.homepage}</a></div>
+                </div>
+            `).join("");
+        }
+
+        async function loadProfile() {
+            const data = await fetchJson(`${API_BASE}/profile`);
+            const profile = data.profile;
+            const panel = document.getElementById("profilePanel");
+
+            if (!profile) {
+                panel.className = "empty";
+                panel.textContent = "No resume uploaded yet.";
+                return;
+            }
+
+            panel.className = "profile-card";
+            panel.innerHTML = `
+                <h3>${profile.name || "Candidate"}</h3>
+                <div class="subtle" style="margin-top: 8px;">${profile.headline || "No headline detected"}</div>
+                <p style="margin-top: 12px;">${profile.summary || "No summary detected."}</p>
+                <div class="pill-row">
+                    ${(profile.skills || []).slice(0, 10).map(skill => `<span class="pill">${skill}</span>`).join("")}
+                </div>
+                <div class="tiny" style="margin-top: 12px;">
+                    Source file: ${profile.source_filename || "unknown"}<br>
+                    Experience bullets: ${profile.experience_count} | Roles: ${profile.work_history_count || 0} | Projects: ${profile.projects_count} | Education entries: ${profile.education_count}
+                </div>
+            `;
+        }
+
+        function renderPagination() {
+            const node = document.getElementById("jobsPagination");
+            if (!currentJobsTotal) {
+                node.innerHTML = "";
+                return;
+            }
+
+            const startPage = Math.max(1, currentJobPage - 2);
+            const endPage = Math.min(currentJobTotalPages, currentJobPage + 2);
+            const pages = [];
+
+            for (let page = startPage; page <= endPage; page += 1) {
+                pages.push(`
+                    <button
+                        class="button button-secondary page-button ${page === currentJobPage ? "active" : ""}"
+                        onclick="goToJobsPage(${page})"
+                        ${page === currentJobPage ? "disabled" : ""}
+                    >${page}</button>
+                `);
+            }
+
+            node.innerHTML = `
+                <div class="jobs-summary">Page ${currentJobPage} of ${currentJobTotalPages}</div>
+                <div class="pagination-pages">
+                    <button class="button button-secondary page-button" onclick="goToJobsPage(${currentJobPage - 1})" ${currentJobPage === 1 ? "disabled" : ""}>Prev</button>
+                    ${pages.join("")}
+                    <button class="button button-secondary page-button" onclick="goToJobsPage(${currentJobPage + 1})" ${currentJobPage === currentJobTotalPages ? "disabled" : ""}>Next</button>
+                </div>
+            `;
+        }
+
+        function renderJobs(jobs) {
+            currentJobs = jobs;
+            const jobsNode = document.getElementById("jobs");
+            const summaryNode = document.getElementById("jobsSummary");
+            const pageSize = Number(document.getElementById("pageSizeSelect").value || 12);
+            const start = currentJobsTotal ? ((currentJobPage - 1) * pageSize) + 1 : 0;
+            const end = currentJobsTotal ? start + jobs.length - 1 : 0;
+
+            summaryNode.textContent = currentJobsTotal
+                ? `Showing ${start}-${end} of ${currentJobsTotal} matched jobs`
+                : "No jobs available for the current filters.";
+
+            if (!jobs.length) {
+                jobsNode.innerHTML = `<div class="empty">No jobs available for the current filters.</div>`;
+                renderPagination();
+                return;
+            }
+
+            jobsNode.innerHTML = jobs.map(renderJob).join("");
+            renderPagination();
+        }
+
+        function renderJob(job) {
+            const match = job.match || { score: 0, matched_keywords: [], missing_keywords: [] };
+            const score = Number(match.score || 0);
+            const tags = (job.tags || []).slice(0, 6);
+            const artifact = artifactMap[job.id];
+            const artifactClass = artifact && artifact.validation && artifact.validation.score < 70 ? "artifact-inline low" : "artifact-inline";
+            return `
+                <article class="job-card">
+                    <div class="job-top">
+                        <div>
+                            <div class="tiny">${job.company} | ${job.source}</div>
+                            <h3>${job.title}</h3>
+                            <div class="pill-row">
+                                ${dateBadge(job)}
+                                <span class="pill">${job.location}</span>
+                                <span class="pill">${job.remote_policy || "unknown"}</span>
+                                <span class="pill">${job.salary || "Not specified"}</span>
+                                ${tags.map(tag => `<span class="pill">${tag}</span>`).join("")}
+                            </div>
+                        </div>
+                        <div class="${scoreClass(score)}">
+                            <div style="font-size: 1.35rem; font-weight: 700;">${score}</div>
+                            <div style="font-size: 0.74rem; letter-spacing: 0.08em; text-transform: uppercase;">match</div>
+                        </div>
+                    </div>
+                    <p>${(job.description || "No description available.").slice(0, 320)}</p>
+                    ${match.matched_keywords && match.matched_keywords.length ? `
+                        <div class="tiny" style="margin-top: 12px;">Matched keywords: ${match.matched_keywords.slice(0, 8).join(", ")}</div>
+                    ` : ""}
+                    ${artifact ? `
+                        <div class="${artifactClass}">
+                            <div class="artifact-inline-title">
+                                <span>Resume Ready</span>
+                                <span>validation ${artifact.validation.score}</span>
+                            </div>
+                            <div class="tiny" style="margin-top: 8px;">Fit: ${artifact.validation.fit_label || "unknown"} | keywords: ${(artifact.validation.matched_keywords || []).slice(0, 6).join(", ") || "none"}</div>
+                            <div class="job-actions" style="margin-top: 10px;">
+                                <button class="artifact-link" onclick='openPreviewFromPayload("${encodeURIComponent(JSON.stringify(artifact))}")'>Preview Resume</button>
+                                <a class="artifact-link" href="${artifact.download_url}" target="_blank" rel="noreferrer">Open Resume PDF</a>
+                                <button class="button button-secondary" onclick="window.open('${job.url}', '_blank')">Open Job</button>
+                            </div>
+                        </div>
+                    ` : `
+                        <div class="job-actions">
+                            <button class="button button-primary" onclick="generateForJob('${job.id}')">Generate Resume PDF</button>
+                            <button class="button button-secondary" onclick="window.open('${job.url}', '_blank')">Open Job</button>
+                        </div>
+                    `}
+                </article>
+            `;
+        }
+
+        async function loadJobs() {
+            const search = encodeURIComponent(document.getElementById("searchInput").value.trim());
+            const remote = encodeURIComponent(document.getElementById("remoteFilter").value);
+            const source = encodeURIComponent(document.getElementById("sourceFilter").value);
+            const perPage = encodeURIComponent(document.getElementById("pageSizeSelect").value);
+            const data = await fetchJson(`${API_BASE}/scraped-jobs?search=${search}&remote_policy=${remote}&source_key=${source}&page=${currentJobPage}&per_page=${perPage}`);
+            currentJobsTotal = data.total || 0;
+            currentJobPage = data.page || 1;
+            currentJobTotalPages = data.total_pages || 1;
+            renderJobs(data.jobs);
+        }
+
+        function debouncedResetJobs() {
+            clearTimeout(searchTimer);
+            currentJobPage = 1;
+            searchTimer = setTimeout(loadJobs, 180);
+        }
+
+        async function loadArtifacts() {
+            const data = await fetchJson(`${API_BASE}/generated-resumes`);
+            const panel = document.getElementById("artifactsPanel");
+            artifactMap = Object.fromEntries(data.artifacts.map(artifact => [artifact.job_id, artifact]));
+            if (currentJobs.length) {
+                renderJobs(currentJobs);
+            }
+
+            if (!data.artifacts.length) {
+                panel.innerHTML = `<div class="empty">No tailored resumes generated yet.</div>`;
+                return;
+            }
+
+            panel.innerHTML = data.artifacts.map(artifact => `
+                <div class="artifact-card">
+                    <div class="tiny">${artifact.company} | ${artifact.source}</div>
+                    <h3>${artifact.title}</h3>
+                    <div class="artifact-meta">
+                        <span class="pill">${artifact.location}</span>
+                        <span class="pill">match ${artifact.match.score}</span>
+                        <span class="pill">validation ${artifact.validation.score}</span>
+                    </div>
+                    <div class="tiny" style="margin-top: 10px;">Matched keywords: ${(artifact.validation.matched_keywords || []).slice(0, 8).join(", ") || "none"}</div>
+                    ${artifact.validation.issues && artifact.validation.issues.length ? `
+                        <div class="issues">${artifact.validation.issues.join(" ")}</div>
+                    ` : ""}
+                    ${artifact.validation.warnings && artifact.validation.warnings.length ? `
+                        <div class="warnings">${artifact.validation.warnings.join(" ")}</div>
+                    ` : ""}
+                    <div class="job-actions">
+                        <button class="button button-secondary" onclick='openPreviewFromPayload("${encodeURIComponent(JSON.stringify(artifact))}")'>Preview</button>
+                        <a class="button button-primary" href="${artifact.download_url}" target="_blank" rel="noreferrer">Download PDF</a>
+                        <button class="button button-secondary" onclick="window.open('${artifact.url}', '_blank')">Open Job</button>
+                    </div>
+                </div>
+            `).join("");
+
+            if (!currentPreviewArtifact && data.artifacts.length) {
+                openPreview(data.artifacts[0]);
+            }
+        }
+
+        async function uploadResume() {
+            const fileInput = document.getElementById("resumeFile");
+            if (!fileInput.files.length) {
+                setStatus("Choose a resume file first.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("resume", fileInput.files[0]);
+            setStatus(`Uploading ${fileInput.files[0].name}...`);
+
+            try {
+                await fetchJson(`${API_BASE}/profile/upload`, { method: "POST", body: formData });
+                setStatus("Resume uploaded and profile refreshed.");
+                await refreshAll();
+            } catch (error) {
+                setStatus(error.message);
+            }
+        }
+
+        async function triggerScrape() {
+            const button = document.getElementById("scrapeButton");
+            button.disabled = true;
+            setStatus("Running enabled ingestion connectors...");
+            try {
+                const data = await fetchJson(`${API_BASE}/scrape`, { method: "POST" });
+                setStatus(`Ingestion complete. ${data.new_jobs} new jobs added.`);
+                setRunSummary({
+                    lastRefresh: data.report.last_scrape ? new Date(data.report.last_scrape).toLocaleString() : "Just now",
+                    newJobs: data.new_jobs,
+                    generated: Object.keys(artifactMap).length,
+                });
+                await refreshAll();
+            } catch (error) {
+                setStatus(error.message);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function generateForJob(jobId) {
+            setStatus(`Generating tailored PDF for ${jobId}...`);
+            try {
+                await fetchJson(`${API_BASE}/jobs/${jobId}/tailor`, { method: "POST" });
+                setStatus(`Tailored PDF generated for ${jobId}.`);
+                await loadArtifacts();
+                await loadStats();
+            } catch (error) {
+                setStatus(error.message);
+            }
+        }
+
+        async function generateTopMatches() {
+            setStatus("Generating PDFs for the top matched jobs...");
+            try {
+                const data = await fetchJson(`${API_BASE}/pipeline/run`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ limit: 5 })
+                });
+                setStatus(`Generated ${data.total} tailored resume PDFs.`);
+                await loadArtifacts();
+                await loadStats();
+            } catch (error) {
+                setStatus(error.message);
+            }
+        }
+
+        async function refreshAndGenerate() {
+            const button = document.getElementById("refreshPipelineButton");
+            button.disabled = true;
+            setStatus("Refreshing jobs and generating updated resumes...");
+            try {
+                const data = await fetchJson(`${API_BASE}/pipeline/refresh`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ limit: 6 })
+                });
+                artifactMap = Object.fromEntries(data.artifacts.map(artifact => [artifact.job_id, artifact]));
+                setRunSummary({
+                    lastRefresh: data.report.last_scrape ? new Date(data.report.last_scrape).toLocaleString() : "Just now",
+                    newJobs: data.report.new_jobs || 0,
+                    generated: data.total || 0,
+                });
+                setStatus(`Refresh complete. ${data.report.new_jobs || 0} new jobs found, ${data.total || 0} resumes generated.`);
+                await Promise.all([loadStats(), loadSources(), loadProfile(), loadJobs(), loadArtifacts()]);
+            } catch (error) {
+                setStatus(error.message);
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function refreshAll() {
+            await Promise.all([
+                loadStats(),
+                loadSources(),
+                loadProfile(),
+                loadJobs(),
+                loadArtifacts()
+            ]);
+        }
+
+        function writeAutomationResult(payload) {
+            const node = document.getElementById("automationResult");
+            node.classList.add("active");
+            node.textContent = JSON.stringify(payload, null, 2);
+        }
+
+        async function runAutomationScenario() {
+            setStatus("Automation mode: running refresh flow...");
+            try {
+                await refreshAndGenerate();
+                const artifacts = Object.values(artifactMap);
+                if (artifacts.length) {
+                    openPreview(artifacts[0]);
+                }
+
+                const payload = {
+                    completedAt: new Date().toISOString(),
+                    status: document.getElementById("statusLine").textContent.trim(),
+                    stats: Array.from(document.querySelectorAll("#stats .stat")).map(node => node.textContent.trim()),
+                    jobs: document.querySelectorAll("#jobs .job-card").length,
+                    artifacts: document.querySelectorAll("#artifactsPanel .artifact-card").length,
+                    runLastRefresh: document.getElementById("runLastRefresh").textContent.trim(),
+                    runNewJobs: document.getElementById("runNewJobs").textContent.trim(),
+                    runGenerated: document.getElementById("runGenerated").textContent.trim(),
+                    previewReady: !!currentPreviewArtifact,
+                    previewTitle: currentPreviewArtifact ? currentPreviewArtifact.title : "",
+                    previewUrl: currentPreviewArtifact ? currentPreviewArtifact.download_url : "",
+                    firstJobTitle: document.querySelector("#jobs .job-card h3")?.textContent?.trim() || "",
+                };
+
+                document.body.dataset.automationComplete = "true";
+                writeAutomationResult(payload);
+            } catch (error) {
+                document.body.dataset.automationComplete = "error";
+                writeAutomationResult({
+                    completedAt: new Date().toISOString(),
+                    error: error.message,
+                    status: document.getElementById("statusLine").textContent.trim(),
+                });
+                throw error;
+            }
+        }
+
+        async function initializeApp() {
+            await refreshAll();
+            if (AUTOMATION_MODE) {
+                await runAutomationScenario();
+            }
+        }
+
+        initializeApp().catch(error => setStatus(error.message));
+    </script>
+</body>
+</html>
