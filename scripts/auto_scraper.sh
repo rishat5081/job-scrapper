@@ -1,7 +1,7 @@
 #!/bin/bash
 # Automated job scraper - Runs periodically to scrape new jobs
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 echo "Starting automated job scraping at $(date)"
 
@@ -11,6 +11,6 @@ if [ -d "venv" ]; then
 fi
 
 # Run the scraper
-python job_scraper.py scrape
+PYTHONPATH=src python -m jobintel.job_scraper scrape
 
 echo "Scraping completed at $(date)"

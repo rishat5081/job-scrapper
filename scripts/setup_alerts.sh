@@ -2,10 +2,11 @@
 # Setup script for automated job alerts using launchd
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLIST_FILE="$HOME/Library/LaunchAgents/com.jobtracker.alert.plist"
 
 echo "Setting up Job Tracker automated alerts..."
-echo "Script directory: $SCRIPT_DIR"
+echo "Project directory: $PROJECT_DIR"
 
 # Create LaunchAgents directory if it doesn't exist
 mkdir -p "$HOME/Library/LaunchAgents"
@@ -111,10 +112,10 @@ cat > "$PLIST_FILE" << EOF
     </array>
 
     <key>StandardOutPath</key>
-    <string>$SCRIPT_DIR/job_alerts.log</string>
+    <string>$PROJECT_DIR/job_alerts.log</string>
 
     <key>StandardErrorPath</key>
-    <string>$SCRIPT_DIR/job_alerts_error.log</string>
+    <string>$PROJECT_DIR/job_alerts_error.log</string>
 </dict>
 </plist>
 EOF
@@ -133,7 +134,7 @@ if [ $? -eq 0 ]; then
     echo "   - Monday-Friday at 2:00 PM"
     echo ""
     echo "To test the notification now, run:"
-    echo "   ./check_jobs.sh"
+    echo "   ./scripts/check_jobs.sh"
     echo ""
     echo "To disable alerts, run:"
     echo "   launchctl unload $PLIST_FILE"

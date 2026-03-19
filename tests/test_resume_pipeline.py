@@ -4,8 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from pdf_utils import write_resume_pdf
-from resume_pipeline import build_resume_profile, score_job_against_profile, tailor_resume_for_job
+from jobintel.pdf_utils import write_resume_pdf
+from jobintel.resume_pipeline import build_resume_profile, score_job_against_profile, tailor_resume_for_job
 
 
 def _chrome_works() -> bool:

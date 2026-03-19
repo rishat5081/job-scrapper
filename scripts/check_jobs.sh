@@ -1,7 +1,7 @@
 #!/bin/bash
 # Automated job checker - Run this periodically to get notified about checking jobs
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 # Send reminder notification to check job boards
 osascript -e 'display notification "Time to check for new senior software engineering jobs!" with title "🔔 Job Search Reminder" sound name "Glass"'

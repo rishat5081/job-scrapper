@@ -4,7 +4,7 @@ import json
 import unittest
 from unittest.mock import patch
 
-from api_server import app
+from jobintel.api_server import app
 
 
 class TestAPIServer(unittest.TestCase):
@@ -30,7 +30,7 @@ class TestAPIServer(unittest.TestCase):
         self.assertIn("last_scrape", data)
 
     def test_profile_endpoint_no_profile(self):
-        with patch("api_server.load_resume_profile", return_value=None):
+        with patch("jobintel.api_server.load_resume_profile", return_value=None):
             response = self.client.get("/api/profile")
             data = json.loads(response.data)
             self.assertEqual(response.status_code, 200)
@@ -101,21 +101,21 @@ class TestAPIServer(unittest.TestCase):
         self.assertEqual(data["date_ranges"], ["today", "3days", "week", "month"])
 
     def test_matches_without_profile(self):
-        with patch("api_server.load_resume_profile", return_value=None):
+        with patch("jobintel.api_server.load_resume_profile", return_value=None):
             response = self.client.get("/api/matches")
             data = json.loads(response.data)
             self.assertEqual(response.status_code, 412)
             self.assertFalse(data["success"])
 
     def test_tailor_without_profile(self):
-        with patch("api_server.load_resume_profile", return_value=None):
+        with patch("jobintel.api_server.load_resume_profile", return_value=None):
             response = self.client.post("/api/jobs/test-job/tailor")
             data = json.loads(response.data)
             self.assertEqual(response.status_code, 412)
             self.assertFalse(data["success"])
 
     def test_pipeline_run_without_profile(self):
-        with patch("api_server.load_resume_profile", return_value=None):
+        with patch("jobintel.api_server.load_resume_profile", return_value=None):
             response = self.client.post(
                 "/api/pipeline/run",
                 data=json.dumps({"limit": 3}),

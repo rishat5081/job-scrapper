@@ -5,7 +5,7 @@ echo "🎯 Job Tracker Installation"
 echo "======================================"
 echo ""
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 # Step 1: Create virtual environment
 echo "📦 Step 1/4: Creating virtual environment..."
@@ -38,12 +38,12 @@ fi
 # Step 3: Run initial scrape
 echo ""
 echo "🔍 Step 3/4: Scraping initial jobs..."
-python job_scraper.py scrape
+PYTHONPATH=src python -m jobintel.job_scraper scrape
 
 # Step 4: Create desktop shortcut (optional)
 echo ""
 echo "🔗 Step 4/4: Creating start script..."
-chmod +x start_server.sh auto_scraper.sh setup_auto_scraper.sh
+chmod +x scripts/start_server.sh scripts/auto_scraper.sh scripts/setup_auto_scraper.sh
 
 echo ""
 echo "======================================"
@@ -51,12 +51,12 @@ echo "✅ Installation Complete!"
 echo "======================================"
 echo ""
 echo "📊 To start the dashboard:"
-echo "   ./start_server.sh"
+echo "   ./scripts/start_server.sh"
 echo ""
-echo "   Then open: http://localhost:5000"
+echo "   Then open: http://localhost:8080"
 echo ""
 echo "🔄 To setup automated scraping (optional):"
-echo "   ./setup_auto_scraper.sh"
+echo "   ./scripts/setup_auto_scraper.sh"
 echo ""
-echo "📖 Read README_SCRAPER.md for full documentation"
+echo "📖 Read docs/README_SCRAPER.md for full documentation"
 echo ""

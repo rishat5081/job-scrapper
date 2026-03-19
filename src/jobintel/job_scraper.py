@@ -13,16 +13,15 @@ import re
 import subprocess
 import time
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
 
-from source_registry import get_source, list_enabled_sources, list_sources
+from jobintel import PROJECT_ROOT
+from jobintel.source_registry import get_source, list_enabled_sources, list_sources
 
-BASE_DIR = Path(__file__).parent
-SCRAPED_JOBS_FILE = BASE_DIR / "scraped_jobs.json"
-LAST_SCRAPE_FILE = BASE_DIR / "last_scrape.json"
+SCRAPED_JOBS_FILE = PROJECT_ROOT / "scraped_jobs.json"
+LAST_SCRAPE_FILE = PROJECT_ROOT / "last_scrape.json"
 
 
 def send_notification(title: str, message: str) -> None:

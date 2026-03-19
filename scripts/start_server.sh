@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start the Job Tracker Dashboard Server
 
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
 
 echo "🚀 Starting Job Tracker Dashboard..."
 echo ""
@@ -26,4 +26,4 @@ echo "Press Ctrl+C to stop the server"
 echo ""
 
 # Start the Flask server
-FLASK_DEBUG=1 FLASK_HOST=0.0.0.0 python api_server.py
+PYTHONPATH=src FLASK_DEBUG=1 FLASK_HOST=0.0.0.0 python -m jobintel.api_server

@@ -6,12 +6,12 @@ Flask API for governed job ingestion and resume tailoring.
 from __future__ import annotations
 
 import math
-from pathlib import Path
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
-from job_scraper import filter_jobs, load_last_scrape, load_scraped_jobs, scrape_all_jobs
-from resume_pipeline import (
+from jobintel import TEMPLATES_DIR
+from jobintel.job_scraper import filter_jobs, load_last_scrape, load_scraped_jobs, scrape_all_jobs
+from jobintel.resume_pipeline import (
     GENERATED_DIR,
     build_resume_profile,
     extract_resume_text,
@@ -23,10 +23,9 @@ from resume_pipeline import (
     save_uploaded_resume,
     tailor_resume_for_job,
 )
-from source_registry import list_sources
+from jobintel.source_registry import list_sources
 
 app = Flask(__name__)
-BASE_DIR = Path(__file__).parent
 
 
 def _json_error(message: str, status_code: int = 400):
@@ -63,12 +62,12 @@ def _generate_artifacts_for_jobs(profile: dict, jobs: list[dict]) -> list[dict]:
 
 @app.route("/")
 def index():
-    return send_from_directory(BASE_DIR, "live_dashboard.html")
+    return send_from_directory(TEMPLATES_DIR, "live_dashboard.html")
 
 
 @app.route("/automation-harness")
 def automation_harness():
-    return send_from_directory(BASE_DIR, "automation_harness.html")
+    return send_from_directory(TEMPLATES_DIR, "automation_harness.html")
 
 
 @app.route("/api/health")

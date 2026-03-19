@@ -7,10 +7,11 @@ Monitors jobs from Dubai, Netherlands, and Germany
 import json
 import subprocess
 from datetime import datetime
-from pathlib import Path
+
+from jobintel import PROJECT_ROOT
 
 # Job tracking file
-TRACKER_FILE = Path(__file__).parent / "job_tracker.json"
+TRACKER_FILE = PROJECT_ROOT / "job_tracker.json"
 
 # Job sources to monitor (you can add more)
 JOB_SOURCES = {

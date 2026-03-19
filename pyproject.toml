@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "jobintel"
 version = "1.0.0"
@@ -7,9 +11,13 @@ license = {text = "MIT"}
 readme = "README.md"
 keywords = ["jobs", "scraper", "resume", "ai", "automation"]
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.ruff]
 target-version = "py311"
 line-length = 120
+src = ["src", "tests"]
 
 [tool.ruff.lint]
 select = [
@@ -49,20 +57,19 @@ indent-style = "space"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-v --tb=short"
 
 [tool.coverage.run]
-source = ["."]
+source = ["src/jobintel"]
 omit = [
     "venv/*",
     "tests/*",
     ".github/*",
     "data/*",
-    "*.sh",
-    "*.mjs",
 ]
 
 [tool.coverage.report]
@@ -79,6 +86,7 @@ skips = ["B101", "B603", "B607"]
 
 [tool.mypy]
 python_version = "3.11"
+mypy_path = "src"
 ignore_missing_imports = true
 warn_return_any = true
 warn_unused_configs = true

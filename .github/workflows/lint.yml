@@ -24,10 +24,10 @@ jobs:
         run: pip install ruff
 
       - name: Ruff lint check
-        run: ruff check . --output-format=github
+        run: ruff check src/ tests/ --output-format=github
 
       - name: Ruff format check
-        run: ruff format --check .
+        run: ruff format --check src/ tests/
 
   html-validate:
     name: HTML Validation
@@ -45,7 +45,7 @@ jobs:
 
       - name: Validate HTML files
         run: |
-          html-validate live_dashboard.html --config '{"extends":["html-validate:recommended"],"rules":{"no-inline-style":"off","no-trailing-whitespace":"off","attribute-boolean-style":"off","prefer-native-element":"off","no-raw-characters":"off","svg-focusable":"off","element-permitted-content":"off","heading-level":"off"}}' || true
+          html-validate templates/live_dashboard.html --config '{"extends":["html-validate:recommended"],"rules":{"no-inline-style":"off","no-trailing-whitespace":"off","attribute-boolean-style":"off","prefer-native-element":"off","no-raw-characters":"off","svg-focusable":"off","element-permitted-content":"off","heading-level":"off"}}' || true
 
   js-check:
     name: JavaScript Quality
@@ -68,13 +68,13 @@ jobs:
           # Extract inline JS from HTML files for linting
           python3 -c "
           import re
-          for fname in ['live_dashboard.html', 'automation_harness.html', 'dashboard.html']:
+          for fname in ['templates/live_dashboard.html', 'templates/automation_harness.html', 'templates/dashboard.html']:
               try:
                   with open(fname) as f:
                       content = f.read()
                   scripts = re.findall(r'<script[^>]*>(.*?)</script>', content, re.DOTALL)
                   if scripts:
-                      with open(f'{fname}.extracted.js', 'w') as out:
+                      with open(f'{fname.split(\"/\")[-1]}.extracted.js', 'w') as out:
                           out.write('/* eslint-env browser */\n')
                           out.write('/* global fetch, FormData, URL, URLSearchParams, performance, requestAnimationFrame */\n')
                           for s in scripts:

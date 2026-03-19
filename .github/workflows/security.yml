@@ -48,8 +48,8 @@ jobs:
 
       - name: Run Bandit security scan
         run: |
-          bandit -r . -x ./venv,./tests,./.github -f json -o bandit-report.json || true
-          bandit -r . -x ./venv,./tests,./.github -ll
+          bandit -r src/ -x ./venv,./tests,./.github -f json -o bandit-report.json || true
+          bandit -r src/ -x ./venv,./tests,./.github -ll
 
       - name: Upload Bandit report
         if: always()
