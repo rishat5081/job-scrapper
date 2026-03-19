@@ -1,5 +1,6 @@
 import re
 import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,11 +8,32 @@ from pathlib import Path
 from pdf_utils import write_resume_pdf
 from resume_pipeline import build_resume_profile, score_job_against_profile, tailor_resume_for_job
 
-_HAS_CHROME = (
-    shutil.which("google-chrome")
-    or shutil.which("chromium")
-    or Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome").exists()
-)
+
+def _chrome_works() -> bool:
+    """Check if headless Chrome can actually run (not just that the binary exists)."""
+    chrome = (
+        shutil.which("google-chrome")
+        or shutil.which("chromium")
+        or (
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+            if Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome").exists()
+            else None
+        )
+    )
+    if not chrome:
+        return False
+    try:
+        result = subprocess.run(
+            [chrome, "--headless", "--disable-gpu", "--dump-dom", "about:blank"],
+            capture_output=True,
+            timeout=10,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+_HAS_CHROME = _chrome_works()
 
 SAMPLE_RESUME = """
 Jane Engineer

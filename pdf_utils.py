@@ -8,6 +8,7 @@ from __future__ import annotations
 import html
 import os
 import shlex
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -339,8 +340,9 @@ def write_resume_pdf(output_path: str | Path, resume: dict) -> Path:
         kill $pid 2>/dev/null || true
         wait $pid 2>/dev/null || true
         """
+        shell = shutil.which("zsh") or shutil.which("bash") or "/bin/sh"
         result = subprocess.run(
-            ["/bin/zsh", "-lc", shell_script],
+            [shell, "-c", shell_script],
             capture_output=True,
             text=True,
             check=False,
