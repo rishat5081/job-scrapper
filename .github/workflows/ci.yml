@@ -18,6 +18,9 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
 
+    env:
+      PYTHONPATH: src
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -47,7 +50,7 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing --cov-report=xml --cov-config=pyproject.toml
+          python -m pytest tests/ -v --tb=short --cov=jobintel --cov-report=term-missing --cov-report=xml --cov-config=pyproject.toml
 
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
@@ -60,6 +63,8 @@ jobs:
   import-check:
     name: Import Check
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: src
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -72,8 +77,8 @@ jobs:
 
       - name: Verify all modules import cleanly
         run: |
-          python -c "import source_registry; print('source_registry OK')"
-          python -c "import job_scraper; print('job_scraper OK')"
-          python -c "import resume_pipeline; print('resume_pipeline OK')"
-          python -c "import pdf_utils; print('pdf_utils OK')"
-          python -c "import api_server; print('api_server OK')"
+          python -c "from jobintel.source_registry import list_sources; print('source_registry OK')"
+          python -c "from jobintel.job_scraper import scrape_all_jobs; print('job_scraper OK')"
+          python -c "from jobintel.resume_pipeline import build_resume_profile; print('resume_pipeline OK')"
+          python -c "from jobintel.pdf_utils import write_resume_pdf; print('pdf_utils OK')"
+          python -c "from jobintel.api_server import app; print('api_server OK')"

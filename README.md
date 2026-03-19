@@ -34,7 +34,7 @@ JobIntel is a governed job ingestion and resume tailoring system that:
 └──────────────────────────┬──────────────────────────────┘
                            │ HTTP/JSON
 ┌──────────────────────────▼──────────────────────────────┐
-│                   Flask API (api_server.py)               │
+│               Flask API (api_server.py)                   │
 │  /api/scrape │ /api/scraped-jobs │ /api/profile/upload    │
 │  /api/matches │ /api/jobs/:id/tailor │ /api/filter-options│
 └───────┬──────────────┬──────────────────┬───────────────┘
@@ -124,7 +124,10 @@ pip install -r requirements.txt
 
 ```bash
 # Start the server
-python api_server.py
+./scripts/start_server.sh
+
+# Or manually:
+PYTHONPATH=src python -m jobintel.api_server
 
 # Open the dashboard
 open http://localhost:8080
@@ -183,31 +186,59 @@ export ADZUNA_APP_KEY="your_app_key"
 ## Project Structure
 
 ```
-.
-├── api_server.py          # Flask API server
-├── job_scraper.py         # Multi-platform scraper + filters
-├── source_registry.py     # Source definitions + compliance
-├── resume_pipeline.py     # Resume parsing, matching, tailoring
-├── pdf_utils.py           # PDF generation (Chrome + fallback)
-├── live_dashboard.html    # Modern dashboard UI
-├── requirements.txt       # Python dependencies
-├── pyproject.toml         # Project metadata + tool config
+jobs/
+├── src/
+│   └── jobintel/               # Main Python package
+│       ├── __init__.py          # Package init, PROJECT_ROOT, DATA_DIR, TEMPLATES_DIR
+│       ├── api_server.py        # Flask API server (20+ endpoints)
+│       ├── job_scraper.py       # Multi-platform scraper + filters
+│       ├── source_registry.py   # Source definitions + compliance metadata
+│       ├── resume_pipeline.py   # Resume parsing, matching, tailoring
+│       ├── pdf_utils.py         # PDF generation (Chrome headless + fallback)
+│       └── job_monitor.py       # macOS job monitoring + notifications
+├── templates/
+│   ├── live_dashboard.html      # Modern glassmorphism dashboard UI
+│   ├── dashboard.html           # Alternate dashboard
+│   └── automation_harness.html  # Browser automation test harness
+├── scripts/
+│   ├── start_server.sh          # Start Flask dev server
+│   ├── auto_scraper.sh          # Automated periodic scraping
+│   ├── check_jobs.sh            # macOS notification reminder
+│   ├── install.sh               # One-command setup
+│   ├── setup_alerts.sh          # macOS launchd alert setup
+│   ├── setup_auto_scraper.sh    # macOS launchd scraper setup
+│   └── browser_automation_run.mjs  # Puppeteer automation
 ├── tests/
-│   ├── test_resume_pipeline.py
-│   ├── test_source_registry.py
-│   ├── test_job_scraper.py
-│   └── test_api_server.py
-├── .github/
-│   └── workflows/
-│       ├── ci.yml         # Test suite + coverage
-│       ├── lint.yml       # Ruff + HTML validation
-│       ├── security.yml   # Dependency audit + Bandit
-│       ├── codeql.yml     # GitHub CodeQL analysis
-│       └── release.yml    # Changelog on tag push
-└── data/                  # Runtime data (gitignored)
-    ├── uploads/
-    ├── generated_resumes/
-    └── reports/
+│   ├── test_api_server.py       # Flask endpoint tests
+│   ├── test_job_scraper.py      # Scraper + filter tests
+│   ├── test_resume_pipeline.py  # Resume pipeline + PDF tests
+│   └── test_source_registry.py  # Source registry tests
+├── docs/
+│   ├── QUICK_REFERENCE.md
+│   ├── README_SCRAPER.md
+│   ├── SETUP_GUIDE.md
+│   ├── START_HERE.md
+│   └── SYSTEM_OVERVIEW.md
+├── data/                        # Runtime data (gitignored)
+│   ├── uploads/
+│   ├── generated_resumes/
+│   └── reports/
+├── .github/workflows/
+│   ├── ci.yml                   # Test suite + coverage
+│   ├── lint.yml                 # Ruff + HTML + JS validation
+│   ├── security.yml             # Dependency audit + Bandit + secrets
+│   ├── codeql.yml               # GitHub CodeQL analysis
+│   ├── dependency-review.yml    # PR dependency review
+│   ├── release.yml              # Changelog on tag push
+│   └── stale.yml                # Stale issue/PR management
+├── pyproject.toml               # Project metadata + tool config
+├── requirements.txt             # Python dependencies
+├── .editorconfig                # Editor settings
+├── .gitignore
+├── LICENSE
+├── CONTRIBUTING.md
+├── CODE_OF_CONDUCT.md
+└── SECURITY.md
 ```
 
 ## Testing
@@ -217,7 +248,7 @@ export ADZUNA_APP_KEY="your_app_key"
 python -m pytest tests/ -v
 
 # Run with coverage
-python -m pytest tests/ -v --cov=. --cov-report=term-missing
+python -m pytest tests/ -v --cov=jobintel --cov-report=term-missing
 
 # Run specific test file
 python -m pytest tests/test_job_scraper.py -v
@@ -227,16 +258,16 @@ python -m pytest tests/test_job_scraper.py -v
 
 ```bash
 # Lint with Ruff
-ruff check .
+ruff check src/ tests/
 
 # Format with Ruff
-ruff format .
+ruff format src/ tests/
 
 # Security scan with Bandit
-bandit -r . -x ./venv,./tests
+bandit -r src/ -x ./venv,./tests
 
 # Type checking (optional)
-mypy *.py --ignore-missing-imports
+mypy src/jobintel/ --ignore-missing-imports
 ```
 
 ## CI/CD Pipelines
@@ -249,7 +280,9 @@ This project includes production-grade GitHub Actions workflows:
 | **Lint** | Push/PR to main | Ruff linting + formatting check, HTML validation |
 | **Security** | Push/PR + weekly schedule | `pip-audit` dependency scan, Bandit SAST |
 | **CodeQL** | Push/PR + weekly schedule | GitHub CodeQL semantic analysis for Python |
+| **Dependency Review** | Pull requests | Checks new dependencies for vulnerabilities |
 | **Release** | Tag push (`v*`) | Auto-generates changelog from commits |
+| **Stale** | Daily schedule | Marks and closes stale issues/PRs |
 
 ## Validation Rules
 

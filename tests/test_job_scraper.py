@@ -3,7 +3,7 @@
 import unittest
 from datetime import UTC, datetime, timedelta
 
-from job_scraper import (
+from jobintel.job_scraper import (
     SCRAPERS,
     filter_jobs,
     generate_job_id,

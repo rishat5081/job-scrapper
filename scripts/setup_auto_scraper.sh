@@ -2,10 +2,11 @@
 # Setup script for automated job scraping using launchd
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PLIST_FILE="$HOME/Library/LaunchAgents/com.jobtracker.scraper.plist"
 
 echo "Setting up automated job scraper..."
-echo "Script directory: $SCRIPT_DIR"
+echo "Project directory: $PROJECT_DIR"
 
 # Create LaunchAgents directory if it doesn't exist
 mkdir -p "$HOME/Library/LaunchAgents"
@@ -28,10 +29,10 @@ cat > "$PLIST_FILE" << EOF
     <integer>10800</integer>
 
     <key>StandardOutPath</key>
-    <string>$SCRIPT_DIR/scraper.log</string>
+    <string>$PROJECT_DIR/scraper.log</string>
 
     <key>StandardErrorPath</key>
-    <string>$SCRIPT_DIR/scraper_error.log</string>
+    <string>$PROJECT_DIR/scraper_error.log</string>
 
     <key>RunAtLoad</key>
     <true/>
@@ -51,7 +52,7 @@ if [ $? -eq 0 ]; then
     echo "📅 Jobs will be automatically scraped every 3 hours"
     echo ""
     echo "To manually scrape now, run:"
-    echo "   python3 job_scraper.py scrape"
+    echo "   PYTHONPATH=src python -m jobintel.job_scraper scrape"
     echo ""
     echo "To disable auto-scraping, run:"
     echo "   launchctl unload $PLIST_FILE"

@@ -2,7 +2,7 @@
 
 import unittest
 
-from source_registry import (
+from jobintel.source_registry import (
     SOURCE_DEFINITIONS,
     get_source,
     list_enabled_sources,

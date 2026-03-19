@@ -14,10 +14,9 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from pdf_utils import write_resume_pdf
+from jobintel import DATA_DIR
+from jobintel.pdf_utils import write_resume_pdf
 
-BASE_DIR = Path(__file__).parent
-DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
 GENERATED_DIR = DATA_DIR / "generated_resumes"
 PROFILE_FILE = DATA_DIR / "resume_profile.json"
