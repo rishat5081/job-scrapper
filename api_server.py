@@ -119,15 +119,54 @@ def upload_profile():
     )
 
 
+@app.route("/api/filter-options", methods=["GET"])
+def filter_options():
+    jobs = load_scraped_jobs()
+    tags_set = set()
+    job_types_set = set()
+    sources_set = set()
+    for job in jobs:
+        for tag in job.get("tags", []):
+            if tag:
+                tags_set.add(tag)
+        jt = job.get("job_type", "")
+        if jt and jt != "Not specified":
+            job_types_set.add(jt)
+        sk = job.get("source_key", "")
+        if sk:
+            sources_set.add(sk)
+    return jsonify({
+        "success": True,
+        "tags": sorted(tags_set),
+        "job_types": sorted(job_types_set),
+        "sources": sorted(sources_set),
+        "experience_levels": ["junior", "mid", "senior", "lead"],
+        "date_ranges": ["today", "3days", "week", "month"],
+    })
+
+
 @app.route("/api/scraped-jobs", methods=["GET"])
 def get_scraped_jobs():
     jobs = load_scraped_jobs()
+
+    skills_param = request.args.get("skills")
+    skills_list = [s.strip() for s in skills_param.split(",") if s.strip()] if skills_param else None
+
+    salary_min_raw = request.args.get("salary_min", type=int)
+    salary_max_raw = request.args.get("salary_max", type=int)
+
     jobs = filter_jobs(
         jobs,
         location=request.args.get("location"),
         search_term=request.args.get("search"),
         remote_policy=request.args.get("remote_policy"),
         source_key=request.args.get("source_key"),
+        salary_min=salary_min_raw,
+        salary_max=salary_max_raw,
+        experience_level=request.args.get("experience_level"),
+        skills=skills_list,
+        date_posted=request.args.get("date_posted"),
+        job_type=request.args.get("job_type"),
     )
     jobs = _jobs_with_matches(jobs)
 
