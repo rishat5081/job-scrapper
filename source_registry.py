@@ -10,7 +10,6 @@ through manual review or approved partner integrations.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import List
 
 
 @dataclass(frozen=True)
@@ -18,7 +17,7 @@ class SourceDefinition:
     key: str
     name: str
     homepage: str
-    regions: List[str]
+    regions: list[str]
     supports_remote: bool
     supports_onsite: bool
     ingestion_mode: str
@@ -26,7 +25,7 @@ class SourceDefinition:
     automation_allowed: bool
     notes: str
     api_url: str = ""
-    tags: List[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -235,8 +234,4 @@ def get_source(key: str) -> SourceDefinition | None:
 
 
 def list_enabled_sources() -> list[SourceDefinition]:
-    return [
-        source
-        for source in SOURCE_DEFINITIONS
-        if source.enabled_by_default and source.automation_allowed
-    ]
+    return [source for source in SOURCE_DEFINITIONS if source.enabled_by_default and source.automation_allowed]

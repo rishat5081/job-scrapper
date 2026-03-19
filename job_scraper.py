@@ -5,6 +5,7 @@ Governed job ingestion with source registry support.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import platform
@@ -18,7 +19,6 @@ import requests
 from bs4 import BeautifulSoup
 
 from source_registry import get_source, list_enabled_sources, list_sources
-
 
 BASE_DIR = Path(__file__).parent
 SCRAPED_JOBS_FILE = BASE_DIR / "scraped_jobs.json"
@@ -75,7 +75,18 @@ def normalize_location(raw_location: str, default_location: str = "Remote") -> t
     return raw, "onsite"
 
 
-def normalize_job(source_key: str, company: str, title: str, location: str, url: str, description: str, salary: str, job_type: str, date_posted: str, tags: list[str] | None = None) -> dict:
+def normalize_job(
+    source_key: str,
+    company: str,
+    title: str,
+    location: str,
+    url: str,
+    description: str,
+    salary: str,
+    job_type: str,
+    date_posted: str,
+    tags: list[str] | None = None,
+) -> dict:
     source = get_source(source_key)
     normalized_location, remote_policy = normalize_location(location)
     tags = tags or []
@@ -260,10 +271,8 @@ def scrape_jobspy_jobs(site_names, source_key_map):
 
             date_posted = ""
             if row.get("date_posted"):
-                try:
+                with contextlib.suppress(Exception):
                     date_posted = str(row["date_posted"])
-                except Exception:
-                    pass
 
             jobs.append(
                 normalize_job(
@@ -313,7 +322,21 @@ def scrape_himalayas_jobs():
 
         for item in data.get("jobs", []):
             title = item.get("title", "")
-            if not any(term in title.lower() for term in ["engineer", "developer", "architect", "devops", "sre", "backend", "frontend", "fullstack", "full-stack", "full stack"]):
+            if not any(
+                term in title.lower()
+                for term in [
+                    "engineer",
+                    "developer",
+                    "architect",
+                    "devops",
+                    "sre",
+                    "backend",
+                    "frontend",
+                    "fullstack",
+                    "full-stack",
+                    "full stack",
+                ]
+            ):
                 continue
 
             salary = "Not specified"
@@ -331,7 +354,9 @@ def scrape_himalayas_jobs():
             location = ", ".join(locations) if locations else "Remote (Worldwide)"
 
             categories = item.get("categories", [])
-            tags = [c.get("name", "") for c in categories if isinstance(c, dict)] if isinstance(categories, list) else []
+            tags = (
+                [c.get("name", "") for c in categories if isinstance(c, dict)] if isinstance(categories, list) else []
+            )
             seniority = item.get("seniority", "")
             if seniority:
                 tags.append(seniority)
@@ -370,7 +395,21 @@ def scrape_jobicy_jobs():
 
         for item in data.get("jobs", []):
             title = item.get("jobTitle", "")
-            if not any(term in title.lower() for term in ["engineer", "developer", "architect", "devops", "sre", "backend", "frontend", "fullstack", "full-stack", "full stack"]):
+            if not any(
+                term in title.lower()
+                for term in [
+                    "engineer",
+                    "developer",
+                    "architect",
+                    "devops",
+                    "sre",
+                    "backend",
+                    "frontend",
+                    "fullstack",
+                    "full-stack",
+                    "full stack",
+                ]
+            ):
                 continue
 
             salary = "Not specified"
@@ -535,21 +574,15 @@ def scrape_all_jobs(notify: bool = True) -> tuple[list[dict], dict]:
     for source in list_enabled_sources():
         scraper = SCRAPERS.get(source.key)
         if not scraper:
-            source_reports.append(
-                {"source_key": source.key, "status": "skipped", "reason": "No scraper registered"}
-            )
+            source_reports.append({"source_key": source.key, "status": "skipped", "reason": "No scraper registered"})
             continue
 
         try:
             jobs = scraper()
             all_new_jobs.extend(jobs)
-            source_reports.append(
-                {"source_key": source.key, "status": "ok", "jobs_found": len(jobs)}
-            )
+            source_reports.append({"source_key": source.key, "status": "ok", "jobs_found": len(jobs)})
         except Exception as exc:
-            source_reports.append(
-                {"source_key": source.key, "status": "error", "error": str(exc)}
-            )
+            source_reports.append({"source_key": source.key, "status": "error", "error": str(exc)})
 
         time.sleep(1)
 
@@ -591,10 +624,7 @@ def filter_jobs(
     filtered = list(jobs)
 
     if location:
-        filtered = [
-            job for job in filtered
-            if location.lower() in job.get("location", "").lower()
-        ]
+        filtered = [job for job in filtered if location.lower() in job.get("location", "").lower()]
 
     if search_term:
         needle = search_term.lower()
@@ -608,44 +638,43 @@ def filter_jobs(
         ]
 
     if remote_policy:
-        filtered = [
-            job for job in filtered
-            if remote_policy.lower() == job.get("remote_policy", "").lower()
-        ]
+        filtered = [job for job in filtered if remote_policy.lower() == job.get("remote_policy", "").lower()]
 
     if source_key:
-        filtered = [
-            job for job in filtered
-            if source_key.lower() == job.get("source_key", "").lower()
-        ]
+        filtered = [job for job in filtered if source_key.lower() == job.get("source_key", "").lower()]
 
     if salary_min is not None or salary_max is not None:
+
         def salary_matches(job):
             s_min, s_max = parse_salary_range(job.get("salary", ""))
             if s_min is None and s_max is None:
                 return False
             if salary_min is not None and (s_max or s_min or 0) < salary_min:
                 return False
-            if salary_max is not None and (s_min or s_max or 0) > salary_max:
-                return False
-            return True
+            return not (salary_max is not None and (s_min or s_max or 0) > salary_max)
+
         filtered = [job for job in filtered if salary_matches(job)]
 
     if experience_level:
         filtered = [
-            job for job in filtered
+            job
+            for job in filtered
             if infer_experience_level(job.get("title", ""), job.get("description", "")) == experience_level.lower()
         ]
 
     if skills:
         skills_lower = [s.lower() for s in skills]
+
         def has_skills(job):
             haystack = (
-                job.get("title", "").lower() + " "
-                + job.get("description", "").lower() + " "
+                job.get("title", "").lower()
+                + " "
+                + job.get("description", "").lower()
+                + " "
                 + " ".join(job.get("tags", [])).lower()
             )
             return any(skill in haystack for skill in skills_lower)
+
         filtered = [job for job in filtered if has_skills(job)]
 
     if date_posted:
@@ -659,6 +688,7 @@ def filter_jobs(
         cutoff = cutoffs.get(date_posted)
         if cutoff:
             threshold = now - cutoff
+
             def posted_after(job):
                 dp = job.get("date_posted", "")
                 if not dp:
@@ -668,13 +698,11 @@ def filter_jobs(
                     return posted_dt >= threshold
                 except (ValueError, TypeError):
                     return False
+
             filtered = [job for job in filtered if posted_after(job)]
 
     if job_type:
-        filtered = [
-            job for job in filtered
-            if job_type.lower() in job.get("job_type", "").lower()
-        ]
+        filtered = [job for job in filtered if job_type.lower() in job.get("job_type", "").lower()]
 
     return filtered
 

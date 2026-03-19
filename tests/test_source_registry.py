@@ -1,9 +1,9 @@
 """Tests for source_registry.py"""
+
 import unittest
 
 from source_registry import (
     SOURCE_DEFINITIONS,
-    SourceDefinition,
     get_source,
     list_enabled_sources,
     list_sources,
@@ -110,9 +110,7 @@ class TestSourceRegistry(unittest.TestCase):
     def test_all_sources_have_regions(self):
         for source in SOURCE_DEFINITIONS:
             self.assertIsInstance(source.regions, list)
-            self.assertGreaterEqual(
-                len(source.regions), 1, f"{source.key} has no regions"
-            )
+            self.assertGreaterEqual(len(source.regions), 1, f"{source.key} has no regions")
 
 
 if __name__ == "__main__":

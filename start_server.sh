@@ -26,4 +26,4 @@ echo "Press Ctrl+C to stop the server"
 echo ""
 
 # Start the Flask server
-python api_server.py
+FLASK_DEBUG=1 FLASK_HOST=0.0.0.0 python api_server.py

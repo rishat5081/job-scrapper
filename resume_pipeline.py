@@ -16,7 +16,6 @@ from bs4 import BeautifulSoup
 
 from pdf_utils import write_resume_pdf
 
-
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
 UPLOADS_DIR = DATA_DIR / "uploads"
@@ -144,22 +143,72 @@ STOPWORDS = {
 ROLE_FAMILIES = {
     "devops_platform": {
         "triggers": ["devops", "platform", "sre", "site reliability", "cloud", "infrastructure"],
-        "priority_terms": ["aws", "ec2", "s3", "vpc", "elb", "ci/cd", "codepipeline", "codedeploy", "docker", "kubernetes", "monitoring", "sentry", "linux"],
+        "priority_terms": [
+            "aws",
+            "ec2",
+            "s3",
+            "vpc",
+            "elb",
+            "ci/cd",
+            "codepipeline",
+            "codedeploy",
+            "docker",
+            "kubernetes",
+            "monitoring",
+            "sentry",
+            "linux",
+        ],
         "headline": "Senior Software Engineer | Cloud, DevOps, and Delivery Automation",
     },
     "backend_api": {
         "triggers": ["backend", "back-end", "api", "services", "server", "platform engineer"],
-        "priority_terms": ["node.js", "express", "rest", "api", "postgresql", "mongodb", "mysql", "redis", "performance", "architecture", "testing", "socket.io"],
+        "priority_terms": [
+            "node.js",
+            "express",
+            "rest",
+            "api",
+            "postgresql",
+            "mongodb",
+            "mysql",
+            "redis",
+            "performance",
+            "architecture",
+            "testing",
+            "socket.io",
+        ],
         "headline": "Senior Software Engineer | Backend APIs and Scalable Services",
     },
     "full_stack": {
         "triggers": ["full stack", "full-stack", "frontend", "front-end", "product engineer"],
-        "priority_terms": ["node.js", "react", "next.js", "javascript", "rest", "api", "postgresql", "aws", "ai", "architecture", "agile"],
+        "priority_terms": [
+            "node.js",
+            "react",
+            "next.js",
+            "javascript",
+            "rest",
+            "api",
+            "postgresql",
+            "aws",
+            "ai",
+            "architecture",
+            "agile",
+        ],
         "headline": "Senior Software Engineer | Full-Stack Product Delivery",
     },
     "software_engineer": {
         "triggers": ["software engineer", "software developer", "engineer", "developer"],
-        "priority_terms": ["node.js", "react", "aws", "rest", "api", "postgresql", "ai", "architecture", "testing", "agile"],
+        "priority_terms": [
+            "node.js",
+            "react",
+            "aws",
+            "rest",
+            "api",
+            "postgresql",
+            "ai",
+            "architecture",
+            "testing",
+            "agile",
+        ],
         "headline": "Senior Software Engineer",
     },
 }
@@ -193,12 +242,9 @@ def _text_quality_score(text: str) -> int:
         return -1000
 
     words = re.findall(r"[A-Za-z][A-Za-z0-9+./-]{2,}", text)
-    unique_words = len(set(word.lower() for word in words))
+    unique_words = len({word.lower() for word in words})
     email_bonus = 20 if re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", text, re.I) else 0
-    section_bonus = sum(
-        6 for alias_group in SECTION_ALIASES.values()
-        if any(alias in lowered for alias in alias_group)
-    )
+    section_bonus = sum(6 for alias_group in SECTION_ALIASES.values() if any(alias in lowered for alias in alias_group))
     return unique_words + email_bonus + section_bonus
 
 
@@ -223,11 +269,23 @@ def _extract_html_profile_data(file_path: Path) -> dict | None:
     if not page:
         return None
 
-    name = _normalize_display_case(page.select_one(".header-left h1").get_text(" ", strip=True)) if page.select_one(".header-left h1") else ""
-    headline = _normalize_display_case(page.select_one(".header-left .subtitle").get_text(" ", strip=True)) if page.select_one(".header-left .subtitle") else ""
+    name = (
+        _normalize_display_case(page.select_one(".header-left h1").get_text(" ", strip=True))
+        if page.select_one(".header-left h1")
+        else ""
+    )
+    headline = (
+        _normalize_display_case(page.select_one(".header-left .subtitle").get_text(" ", strip=True))
+        if page.select_one(".header-left .subtitle")
+        else ""
+    )
     summary = page.select_one(".summary").get_text(" ", strip=True) if page.select_one(".summary") else ""
 
-    header_lines = [line.strip() for line in page.select_one(".header-right").stripped_strings] if page.select_one(".header-right") else []
+    header_lines = (
+        [line.strip() for line in page.select_one(".header-right").stripped_strings]
+        if page.select_one(".header-right")
+        else []
+    )
     contact_blob = " | ".join(header_lines)
     email_match = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", contact_blob, re.I)
     phone_match = re.search(r"(\+?\d[\d\s().-]{7,}\d)", contact_blob)
@@ -252,7 +310,6 @@ def _extract_html_profile_data(file_path: Path) -> dict | None:
 
     skills = []
     for category in page.select(".skill-category"):
-        label = category.select_one(".label").get_text(" ", strip=True).rstrip(":") if category.select_one(".label") else ""
         values = category.select_one(".values").get_text(" ", strip=True) if category.select_one(".values") else ""
         for raw_skill in re.split(r"[|,/;()]", values):
             normalized = raw_skill.strip()
@@ -399,11 +456,7 @@ def _split_sections(text: str) -> dict[str, list[str]]:
 
         normalized = line.lower().rstrip(":")
         matched_section = next(
-            (
-                section
-                for section, aliases in SECTION_ALIASES.items()
-                if normalized in aliases
-            ),
+            (section for section, aliases in SECTION_ALIASES.items() if normalized in aliases),
             None,
         )
 
@@ -583,7 +636,10 @@ def build_resume_profile(text: str, source_filename: str = "", source_path: str 
             continue
         if name.lower() in line.lower():
             continue
-        if not any(term in line.lower() for term in ["engineer", "developer", "architect", "software", "full-stack", "backend", "frontend"]):
+        if not any(
+            term in line.lower()
+            for term in ["engineer", "developer", "architect", "software", "full-stack", "backend", "frontend"]
+        ):
             continue
         headline = _normalize_display_case(line)
         break
@@ -608,10 +664,7 @@ def build_resume_profile(text: str, source_filename: str = "", source_path: str 
         if collected:
             summary_paragraph = " ".join(collected[:5]).strip()
 
-        fallback = [
-            line for line in header_lines[1:5]
-            if "@" not in line and "http" not in line.lower()
-        ]
+        fallback = [line for line in header_lines[1:5] if "@" not in line and "http" not in line.lower()]
         summary = summary_paragraph or " ".join(fallback[:2]).strip()
 
     profile = {
@@ -631,7 +684,9 @@ def build_resume_profile(text: str, source_filename: str = "", source_path: str 
     }
 
     profile["experience"] = _augment_items(profile["experience"], text, minimum=3, limit=10)
-    profile["projects"] = _augment_items(profile["projects"], profile["summary"], minimum=1 if profile["projects"] else 0, limit=6)
+    profile["projects"] = _augment_items(
+        profile["projects"], profile["summary"], minimum=1 if profile["projects"] else 0, limit=6
+    )
 
     if not profile["summary"]:
         profile["summary"] = "Experienced software professional with a background aligned to modern engineering teams."
@@ -845,7 +900,9 @@ def _select_ranked_items(items: list[str], keywords: list[str], minimum: int, ma
     return selected[:maximum]
 
 
-def _compose_target_summary(profile: dict, job: dict, matched_keywords: list[str], family: str, family_supported_terms: list[str]) -> str:
+def _compose_target_summary(
+    profile: dict, job: dict, matched_keywords: list[str], family: str, family_supported_terms: list[str]
+) -> str:
     matched_text = ", ".join(matched_keywords[:5])
     supported_text = ", ".join(family_supported_terms[:5])
     title = job.get("title", "engineering role")
@@ -899,7 +956,9 @@ def _build_transferable_highlights(profile: dict, family: str, family_supported_
 
     for statement in family_statements.get(family, family_statements["software_engineer"]):
         lowered = statement.lower()
-        if any(term in lowered for term in family_supported_terms) or any(term in evidence_blob for term in family_supported_terms):
+        if any(term in lowered for term in family_supported_terms) or any(
+            term in evidence_blob for term in family_supported_terms
+        ):
             highlights.append(statement)
 
     if not highlights:
@@ -908,14 +967,16 @@ def _build_transferable_highlights(profile: dict, family: str, family_supported_
     return highlights[:3]
 
 
-def _select_work_history(profile: dict, keywords: list[str], maximum_jobs: int = 3, bullets_per_job: int = 3) -> list[dict]:
+def _select_work_history(
+    profile: dict, keywords: list[str], maximum_jobs: int = 3, bullets_per_job: int = 3
+) -> list[dict]:
     work_history = profile.get("work_history", [])
     if not work_history:
         return []
 
     ranked = []
     for job in work_history:
-        combined = " ".join([job.get("company", ""), job.get("role", "")] + job.get("bullets", [])).lower()
+        combined = " ".join([job.get("company", ""), job.get("role", ""), *job.get("bullets", [])]).lower()
         score = sum(2 for keyword in keywords if keyword in combined)
         ranked.append((score, job))
 
@@ -950,10 +1011,12 @@ def validate_tailored_resume(resume: dict, profile: dict, job: dict) -> dict:
 
     job_keywords = extract_job_keywords(job)
     payload_blob = " ".join(
-        [resume.get("summary", "")]
-        + resume.get("skills", [])
-        + resume.get("experience", [])
-        + resume.get("projects", [])
+        [
+            resume.get("summary", ""),
+            *resume.get("skills", []),
+            *resume.get("experience", []),
+            *resume.get("projects", []),
+        ]
     ).lower()
     profile_blob = profile.get("raw_text", "").lower()
 
@@ -964,7 +1027,9 @@ def validate_tailored_resume(resume: dict, profile: dict, job: dict) -> dict:
     if not evidenced_keywords:
         warnings.append("The source resume has limited direct overlap with the job description keywords.")
 
-    coverage = len([keyword for keyword in evidenced_keywords if keyword in payload_blob]) / max(1, len(evidenced_keywords))
+    coverage = len([keyword for keyword in evidenced_keywords if keyword in payload_blob]) / max(
+        1, len(evidenced_keywords)
+    )
     score = round((coverage * 80) + (20 if not issues else 0))
     unsupported_ratio = len(unsupported_keywords) / max(1, len(job_keywords))
 
@@ -996,7 +1061,9 @@ def validate_tailored_resume(resume: dict, profile: dict, job: dict) -> dict:
 def _build_tailored_resume(profile: dict, job: dict, target_keywords: list[str], attempt: int) -> dict:
     family = _detect_role_family(job)
     family_supported_terms = _family_supported_terms(profile, family, target_keywords)
-    prioritized_keywords = family_supported_terms + [keyword for keyword in target_keywords if keyword not in family_supported_terms]
+    prioritized_keywords = family_supported_terms + [
+        keyword for keyword in target_keywords if keyword not in family_supported_terms
+    ]
     experience_limit = 4 + attempt
     project_limit = 2 + min(attempt, 1)
     selected_experience = _select_ranked_items(
@@ -1018,7 +1085,9 @@ def _build_tailored_resume(profile: dict, job: dict, target_keywords: list[str],
         maximum=12,
     )
     transferable_highlights = _build_transferable_highlights(profile, family, family_supported_terms)
-    selected_work_history = _select_work_history(profile, prioritized_keywords, maximum_jobs=3, bullets_per_job=2 + min(attempt, 1))
+    selected_work_history = _select_work_history(
+        profile, prioritized_keywords, maximum_jobs=3, bullets_per_job=2 + min(attempt, 1)
+    )
     normalized_headline = ROLE_FAMILIES.get(family, ROLE_FAMILIES["software_engineer"])["headline"]
 
     return {
@@ -1028,7 +1097,8 @@ def _build_tailored_resume(profile: dict, job: dict, target_keywords: list[str],
         "summary": _compose_target_summary(profile, job, prioritized_keywords, family, family_supported_terms),
         "target_role": f"{job.get('title', '')} | {job.get('location', '')}".strip(" |"),
         "skills": selected_skills,
-        "experience": transferable_highlights + [item for item in selected_experience if item not in transferable_highlights],
+        "experience": transferable_highlights
+        + [item for item in selected_experience if item not in transferable_highlights],
         "work_history": selected_work_history,
         "projects": selected_projects,
         "education": profile.get("education", []),

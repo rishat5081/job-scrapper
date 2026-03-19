@@ -109,7 +109,7 @@ jobs:
 
       - name: Check dependency licenses
         run: |
-          pip-licenses --format=table --with-urls --order=license
+          pip-licenses --format=plain --with-urls --order=license
           echo ""
           echo "=== Checking for copyleft licenses ==="
           COPYLEFT=$(pip-licenses --format=csv | grep -iE "GPL|AGPL|SSPL|EUPL" || true)

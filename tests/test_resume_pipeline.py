@@ -1,4 +1,5 @@
 import re
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -6,6 +7,11 @@ from pathlib import Path
 from pdf_utils import write_resume_pdf
 from resume_pipeline import build_resume_profile, score_job_against_profile, tailor_resume_for_job
 
+_HAS_CHROME = (
+    shutil.which("google-chrome")
+    or shutil.which("chromium")
+    or Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome").exists()
+)
 
 SAMPLE_RESUME = """
 Jane Engineer
@@ -83,6 +89,7 @@ class ResumePipelineTests(unittest.TestCase):
         self.assertGreater(strong["score"], weak["score"])
         self.assertIn("python", strong["matched_keywords"])
 
+    @unittest.skipUnless(_HAS_CHROME, "Headless Chrome not available")
     def test_tailoring_generates_pdf(self):
         profile = build_resume_profile(SAMPLE_RESUME, "resume.txt")
 
@@ -95,6 +102,7 @@ class ResumePipelineTests(unittest.TestCase):
             self.assertIn("%PDF-1.4", pdf_path.read_text(encoding="latin-1", errors="ignore"))
             self.assertGreaterEqual(artifact["validation"]["score"], 60)
 
+    @unittest.skipUnless(_HAS_CHROME, "Headless Chrome not available")
     def test_tailoring_prefers_truthful_devops_focus(self):
         profile = build_resume_profile(SAMPLE_RESUME, "resume.txt")
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -104,6 +112,7 @@ class ResumePipelineTests(unittest.TestCase):
             self.assertTrue(any("AWS" in item or "CI/CD" in item for item in artifact["resume"]["experience"]))
             self.assertNotIn("python", artifact["validation"]["matched_keywords"])
 
+    @unittest.skipUnless(_HAS_CHROME, "Headless Chrome not available")
     def test_pdf_writer_links_pages_correctly(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = write_resume_pdf(

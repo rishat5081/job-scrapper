@@ -1,4 +1,5 @@
 """Tests for job_scraper.py - filters, parsers, helpers, and scraper registry."""
+
 import unittest
 from datetime import UTC, datetime, timedelta
 
@@ -20,19 +21,19 @@ class TestNormalizeLocation(unittest.TestCase):
         self.assertEqual(policy, "remote")
 
     def test_remote_keyword(self):
-        loc, policy = normalize_location("Remote (Worldwide)")
+        _loc, policy = normalize_location("Remote (Worldwide)")
         self.assertEqual(policy, "remote")
 
     def test_anywhere_keyword(self):
-        loc, policy = normalize_location("Anywhere")
+        _loc, policy = normalize_location("Anywhere")
         self.assertEqual(policy, "remote")
 
     def test_hybrid(self):
-        loc, policy = normalize_location("Hybrid - New York")
+        _loc, policy = normalize_location("Hybrid - New York")
         self.assertEqual(policy, "hybrid")
 
     def test_onsite(self):
-        loc, policy = normalize_location("San Francisco, CA")
+        _loc, policy = normalize_location("San Francisco, CA")
         self.assertEqual(policy, "onsite")
 
 
@@ -57,9 +58,16 @@ class TestGenerateJobId(unittest.TestCase):
 class TestNormalizeJob(unittest.TestCase):
     def test_returns_required_fields(self):
         job = normalize_job(
-            "remotive", "Acme", "Software Engineer", "Remote",
-            "https://example.com", "A job description.", "$100k",
-            "Full-time", "2026-01-01", ["python"]
+            "remotive",
+            "Acme",
+            "Software Engineer",
+            "Remote",
+            "https://example.com",
+            "A job description.",
+            "$100k",
+            "Full-time",
+            "2026-01-01",
+            ["python"],
         )
         self.assertIn("id", job)
         self.assertIn("company", job)
@@ -160,26 +168,41 @@ class TestFilterJobs(unittest.TestCase):
         now = datetime.now(UTC)
         self.jobs = [
             {
-                "id": "1", "title": "Senior Python Engineer", "company": "Acme",
-                "location": "Remote", "remote_policy": "remote", "source_key": "remotive",
+                "id": "1",
+                "title": "Senior Python Engineer",
+                "company": "Acme",
+                "location": "Remote",
+                "remote_policy": "remote",
+                "source_key": "remotive",
                 "description": "Build APIs with Python and Django",
-                "tags": ["python", "django"], "salary": "$120k-$160k",
+                "tags": ["python", "django"],
+                "salary": "$120k-$160k",
                 "job_type": "Full-time",
                 "date_posted": now.isoformat().replace("+00:00", "Z"),
             },
             {
-                "id": "2", "title": "Junior React Developer", "company": "Beta Corp",
-                "location": "New York", "remote_policy": "onsite", "source_key": "linkedin",
+                "id": "2",
+                "title": "Junior React Developer",
+                "company": "Beta Corp",
+                "location": "New York",
+                "remote_policy": "onsite",
+                "source_key": "linkedin",
                 "description": "Frontend development with React and TypeScript",
-                "tags": ["react", "typescript"], "salary": "$60k-$80k",
+                "tags": ["react", "typescript"],
+                "salary": "$60k-$80k",
                 "job_type": "Full-time",
                 "date_posted": (now - timedelta(days=5)).isoformat().replace("+00:00", "Z"),
             },
             {
-                "id": "3", "title": "DevOps Contractor", "company": "Cloud Inc",
-                "location": "Remote", "remote_policy": "remote", "source_key": "remoteok",
+                "id": "3",
+                "title": "DevOps Contractor",
+                "company": "Cloud Inc",
+                "location": "Remote",
+                "remote_policy": "remote",
+                "source_key": "remoteok",
                 "description": "AWS infrastructure and CI/CD pipelines",
-                "tags": ["aws", "devops"], "salary": "$90/hr",
+                "tags": ["aws", "devops"],
+                "salary": "$90/hr",
                 "job_type": "Contract",
                 "date_posted": (now - timedelta(days=40)).isoformat().replace("+00:00", "Z"),
             },
@@ -267,9 +290,15 @@ class TestFilterJobs(unittest.TestCase):
 class TestScrapersRegistry(unittest.TestCase):
     def test_all_expected_scrapers_registered(self):
         expected = [
-            "remotive", "weworkremotely", "remoteok",
-            "linkedin", "indeed", "glassdoor",
-            "himalayas", "jobicy", "adzuna",
+            "remotive",
+            "weworkremotely",
+            "remoteok",
+            "linkedin",
+            "indeed",
+            "glassdoor",
+            "himalayas",
+            "jobicy",
+            "adzuna",
         ]
         for key in expected:
             self.assertIn(key, SCRAPERS, f"Missing scraper: {key}")

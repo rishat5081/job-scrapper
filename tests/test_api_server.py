@@ -1,4 +1,5 @@
 """Tests for api_server.py Flask endpoints."""
+
 import json
 import unittest
 from unittest.mock import patch
@@ -96,12 +97,8 @@ class TestAPIServer(unittest.TestCase):
         self.assertIn("experience_levels", data)
         self.assertIn("date_ranges", data)
         self.assertIsInstance(data["tags"], list)
-        self.assertEqual(
-            data["experience_levels"], ["junior", "mid", "senior", "lead"]
-        )
-        self.assertEqual(
-            data["date_ranges"], ["today", "3days", "week", "month"]
-        )
+        self.assertEqual(data["experience_levels"], ["junior", "mid", "senior", "lead"])
+        self.assertEqual(data["date_ranges"], ["today", "3days", "week", "month"])
 
     def test_matches_without_profile(self):
         with patch("api_server.load_resume_profile", return_value=None):
@@ -124,7 +121,6 @@ class TestAPIServer(unittest.TestCase):
                 data=json.dumps({"limit": 3}),
                 content_type="application/json",
             )
-            data = json.loads(response.data)
             self.assertEqual(response.status_code, 412)
 
     def test_generated_resumes_endpoint(self):
@@ -146,9 +142,7 @@ class TestAPIServer(unittest.TestCase):
 
     def test_cors_headers(self):
         response = self.client.get("/api/health")
-        self.assertEqual(
-            response.headers.get("Access-Control-Allow-Origin"), "*"
-        )
+        self.assertEqual(response.headers.get("Access-Control-Allow-Origin"), "*")
 
     def test_index_serves_dashboard(self):
         response = self.client.get("/")

@@ -12,7 +12,6 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-
 CHROME_CANDIDATES = [
     "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
@@ -72,10 +71,10 @@ def _work_history_section(work_history: list[dict]) -> str:
             <article class="job">
               <div class="job-head">
                 <div>
-                  <div class="company">{_escape(item.get('company', ''))}</div>
-                  <div class="role">{_escape(item.get('role', ''))}</div>
+                  <div class="company">{_escape(item.get("company", ""))}</div>
+                  <div class="role">{_escape(item.get("role", ""))}</div>
                 </div>
-                <div class="dates">{_escape(item.get('dates', ''))}</div>
+                <div class="dates">{_escape(item.get("dates", ""))}</div>
               </div>
               <ul>{bullets}</ul>
             </article>
@@ -85,7 +84,7 @@ def _work_history_section(work_history: list[dict]) -> str:
     return f"""
     <section class="section full">
       <h2>Selected Experience</h2>
-      {''.join(jobs)}
+      {"".join(jobs)}
     </section>
     """
 
@@ -281,7 +280,7 @@ def _resume_html(resume: dict) -> str:
       <section class="section full">
         <h2>Skills</h2>
         <div class="skills">
-          {''.join(f'<span class="skill">{_escape(skill)}</span>' for skill in skills)}
+          {"".join(f'<span class="skill">{_escape(skill)}</span>' for skill in skills)}
         </div>
       </section>
       {_section("Experience Highlights", experience)}
@@ -300,12 +299,12 @@ def _legacy_write_pdf(output_path: Path, resume: dict) -> Path:
     from pathlib import Path as _Path
 
     content = (
-        f"%PDF-1.4\n% fallback\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
-        f"2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
-        f"3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n"
-        f"4 0 obj\n<< /Length 0 >>\nstream\nendstream\nendobj\nxref\n0 5\n"
-        f"0000000000 65535 f \n0000000015 00000 n \n0000000064 00000 n \n0000000121 00000 n \n0000000208 00000 n \n"
-        f"trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n256\n%%EOF\n"
+        "%PDF-1.4\n% fallback\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n"
+        "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+        "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>\nendobj\n"
+        "4 0 obj\n<< /Length 0 >>\nstream\nendstream\nendobj\nxref\n0 5\n"
+        "0000000000 65535 f \n0000000015 00000 n \n0000000064 00000 n \n0000000121 00000 n \n0000000208 00000 n \n"
+        "trailer\n<< /Size 5 /Root 1 0 R >>\nstartxref\n256\n%%EOF\n"
     )
     _Path(output_path).write_text(content, encoding="latin-1")
     return output_path

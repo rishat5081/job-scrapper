@@ -5,7 +5,6 @@ Flask API for governed job ingestion and resume tailoring.
 
 from __future__ import annotations
 
-import json
 import math
 from pathlib import Path
 
@@ -14,6 +13,7 @@ from flask import Flask, jsonify, request, send_file, send_from_directory
 from job_scraper import filter_jobs, load_last_scrape, load_scraped_jobs, scrape_all_jobs
 from resume_pipeline import (
     GENERATED_DIR,
+    build_resume_profile,
     extract_resume_text,
     load_resume_profile,
     load_tailored_resumes,
@@ -22,10 +22,8 @@ from resume_pipeline import (
     save_resume_profile,
     save_uploaded_resume,
     tailor_resume_for_job,
-    build_resume_profile,
 )
 from source_registry import list_sources
-
 
 app = Flask(__name__)
 BASE_DIR = Path(__file__).parent
@@ -135,14 +133,16 @@ def filter_options():
         sk = job.get("source_key", "")
         if sk:
             sources_set.add(sk)
-    return jsonify({
-        "success": True,
-        "tags": sorted(tags_set),
-        "job_types": sorted(job_types_set),
-        "sources": sorted(sources_set),
-        "experience_levels": ["junior", "mid", "senior", "lead"],
-        "date_ranges": ["today", "3days", "week", "month"],
-    })
+    return jsonify(
+        {
+            "success": True,
+            "tags": sorted(tags_set),
+            "job_types": sorted(job_types_set),
+            "sources": sorted(sources_set),
+            "experience_levels": ["junior", "mid", "senior", "lead"],
+            "date_ranges": ["today", "3days", "week", "month"],
+        }
+    )
 
 
 @app.route("/api/scraped-jobs", methods=["GET"])
@@ -268,7 +268,6 @@ def refresh_pipeline():
 
     payload = request.get_json(silent=True) or {}
     limit = min(max(int(payload.get("limit", 6)), 1), 25)
-    generate_mode = payload.get("mode", "new_or_top")
 
     jobs, report = scrape_all_jobs(notify=False)
     matched_jobs = match_jobs_to_profile(profile, jobs)
@@ -308,9 +307,9 @@ def stats():
     generated = load_tailored_resumes()
 
     jobs_with_matches = match_jobs_to_profile(profile, jobs) if profile else jobs
-    strong_matches = len(
-        [job for job in jobs_with_matches if job.get("match", {}).get("score", 0) >= 70]
-    ) if profile else 0
+    strong_matches = (
+        len([job for job in jobs_with_matches if job.get("match", {}).get("score", 0) >= 70]) if profile else 0
+    )
 
     by_source = {}
     for job in jobs:
@@ -341,5 +340,11 @@ def after_request(response):
 
 
 if __name__ == "__main__":
+    import os
+
     print("Job system API running at http://localhost:8080")
-    app.run(debug=True, host="0.0.0.0", port=8080)
+    app.run(
+        debug=os.environ.get("FLASK_DEBUG", "0") == "1",
+        host=os.environ.get("FLASK_HOST", "127.0.0.1"),
+        port=int(os.environ.get("FLASK_PORT", "8080")),
+    )
