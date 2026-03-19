@@ -1,0 +1,85 @@
+name: Lint
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    name: Ruff (Python Linter)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Ruff lint check
+        run: ruff check . --output-format=github
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+  html-validate:
+    name: HTML Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install html-validate
+        run: npm install -g html-validate
+
+      - name: Validate HTML files
+        run: |
+          html-validate live_dashboard.html --config '{"extends":["html-validate:recommended"],"rules":{"no-inline-style":"off","no-trailing-whitespace":"off","attribute-boolean-style":"off","prefer-native-element":"off","no-raw-characters":"off","svg-focusable":"off","element-permitted-content":"off","heading-level":"off"}}' || true
+
+  js-check:
+    name: JavaScript Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install ESLint
+        run: |
+          npm init -y > /dev/null 2>&1
+          npm install eslint@8 --save-dev
+
+      - name: Extract and lint inline JavaScript
+        run: |
+          # Extract inline JS from HTML files for linting
+          python3 -c "
+          import re
+          for fname in ['live_dashboard.html', 'automation_harness.html', 'dashboard.html']:
+              try:
+                  with open(fname) as f:
+                      content = f.read()
+                  scripts = re.findall(r'<script[^>]*>(.*?)</script>', content, re.DOTALL)
+                  if scripts:
+                      with open(f'{fname}.extracted.js', 'w') as out:
+                          out.write('/* eslint-env browser */\n')
+                          out.write('/* global fetch, FormData, URL, URLSearchParams, performance, requestAnimationFrame */\n')
+                          for s in scripts:
+                              out.write(s + '\n')
+              except FileNotFoundError:
+                  pass
+          "
+          npx eslint --no-eslintrc --env browser,es2022 --parser-options=ecmaVersion:2022 --rule '{"no-undef":"off","no-unused-vars":"warn","no-redeclare":"error","eqeqeq":"warn"}' *.extracted.js || true

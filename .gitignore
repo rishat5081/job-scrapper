@@ -1,15 +1,56 @@
+# Python
 venv/
 __pycache__/
 *.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Logs
 *.log
 
+# Runtime data
 data/generated_resumes/
 data/reports/
 data/uploads/
 data/resume_profile.json
 data/tailored_resumes.json
-
 scraped_jobs.json
 last_scrape.json
 job_tracker.json
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing / Coverage
+htmlcov/
+.coverage
+coverage.xml
+.pytest_cache/
+.mypy_cache/
+
+# Security scan artifacts
+bandit-report.json
+.secrets-report.json
+
+# Node (for CI lint tools)
+node_modules/
+package.json
+package-lock.json
+*.extracted.js
