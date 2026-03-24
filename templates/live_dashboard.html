@@ -726,6 +726,40 @@
             font-weight: 600;
         }
 
+        .asset-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .asset-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 36px;
+            padding: 8px 10px;
+            border-radius: var(--radius-xs);
+            background: var(--surface-solid);
+            border: 1px solid var(--border);
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.78rem;
+            font-weight: 600;
+        }
+
+        .asset-link:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .status-controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
         /* Jobs toolbar */
         .jobs-toolbar {
             display: flex;
@@ -1052,7 +1086,7 @@
             <div class="controls-grid">
                 <div class="glass-card">
                     <h3 style="font-size: 1rem; font-weight: 700;">Pipeline Controls</h3>
-                    <p style="color: var(--text-secondary); font-size: 0.82rem; margin-top: 4px;">Refresh jobs, score matches, and generate resumes.</p>
+                    <p style="color: var(--text-secondary); font-size: 0.82rem; margin-top: 4px;">Refresh jobs, rank matches, and prepare application packets.</p>
                     <div class="control-actions">
                         <button id="refreshPipelineButton" class="btn btn-primary btn-lg" onclick="refreshAndGenerate()">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182"/></svg>
@@ -1114,7 +1148,7 @@
         <div id="section-jobs" class="section">
             <div style="margin-bottom: 24px;">
                 <h2 style="font-size: 1.5rem; font-weight: 800;">Matched Jobs</h2>
-                <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px;">Search, filter, and generate tailored resumes for matched positions.</p>
+                <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px;">Search, filter, and prepare a resume, cover letter, and draft answers for each role.</p>
             </div>
 
             <div class="search-row">
@@ -1220,8 +1254,8 @@
         <!-- RESUMES SECTION -->
         <div id="section-resumes" class="section">
             <div style="margin-bottom: 24px;">
-                <h2 style="font-size: 1.5rem; font-weight: 800;">Generated Resumes</h2>
-                <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px;">Preview and download AI-tailored resume PDFs.</p>
+                <h2 style="font-size: 1.5rem; font-weight: 800;">Application Packets</h2>
+                <p style="color: var(--text-secondary); font-size: 0.88rem; margin-top: 4px;">Preview the tailored resume and open the full packet for each target job.</p>
             </div>
 
             <div class="content-layout">
@@ -1240,7 +1274,7 @@
                 <div class="right-stack">
                     <div class="glass-card">
                         <div class="card-header">
-                            <h2 style="font-size: 1rem;">Resume Artifacts</h2>
+                            <h2 style="font-size: 1rem;">Prepared Packets</h2>
                         </div>
                         <div id="artifactsPanel" class="stack">
                             <div class="skeleton skeleton-card"></div>
@@ -1284,6 +1318,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const AUTOMATION_MODE = urlParams.get("automation") === "1";
         const AUTOMATION_DISABLE_PDF = urlParams.get("no_pdf_preview") === "1";
+        const STATUS_OPTIONS = ["prepared", "ready_to_review", "applied", "interview", "offer", "rejected", "archived"];
         let searchTimer = null;
         let artifactMap = {};
         let currentJobs = [];
@@ -1377,6 +1412,38 @@
             return "match-score score-low";
         }
 
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function statusOptionsMarkup(selected) {
+            return STATUS_OPTIONS.map(option =>
+                `<option value="${option}" ${option === selected ? "selected" : ""}>${option.replaceAll("_", " ")}</option>`
+            ).join("");
+        }
+
+        function applicationAssetsMarkup(artifact) {
+            const coverLetter = artifact.cover_letter || {};
+            const draftAnswers = artifact.draft_answers || {};
+            const links = [
+                `<a class="asset-link" href="${artifact.download_url}" target="_blank" rel="noreferrer">Resume PDF</a>`,
+                coverLetter.pdf_url ? `<a class="asset-link" href="${coverLetter.pdf_url}" target="_blank" rel="noreferrer">Cover PDF</a>` : "",
+                coverLetter.markdown_url ? `<a class="asset-link" href="${coverLetter.markdown_url}" target="_blank" rel="noreferrer">Cover Text</a>` : "",
+                draftAnswers.markdown_url ? `<a class="asset-link" href="${draftAnswers.markdown_url}" target="_blank" rel="noreferrer">Draft Answers</a>` : ""
+            ].filter(Boolean);
+
+            return `
+                <div class="asset-grid">
+                    ${links.join("")}
+                </div>
+            `;
+        }
+
         async function fetchJson(url, options = {}) {
             const response = await fetch(url, options);
             const data = await response.json();
@@ -1429,8 +1496,8 @@
                     <div class="stat-icon" style="background: var(--orange-light); color: var(--orange);">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z"/></svg>
                     </div>
-                    <div class="stat-value" data-count="${s.generated_resumes}">0</div>
-                    <div class="stat-label">Generated PDFs</div>
+                    <div class="stat-value" data-count="${s.prepared_applications || s.generated_resumes}">0</div>
+                    <div class="stat-label">Prepared Packets</div>
                 </div>
             `;
             grid.querySelectorAll("[data-count]").forEach(el => {
@@ -1512,6 +1579,8 @@
             const tags = (job.tags || []).slice(0, 5);
             const artifact = artifactMap[job.id];
             const artifactCls = artifact && artifact.validation && artifact.validation.score < 70 ? "artifact-inline low-score" : "artifact-inline";
+            const status = artifact && artifact.application_status ? artifact.application_status.status : "prepared";
+            const hasPacket = !!(artifact && artifact.cover_letter && artifact.cover_letter.pdf_url && artifact.draft_answers && artifact.draft_answers.markdown_url);
             return `
                 <article class="job-card">
                     <div class="job-card-header">
@@ -1539,19 +1608,30 @@
                     ${artifact ? `
                         <div class="${artifactCls}">
                             <div class="artifact-inline-header">
-                                <span>Resume Ready</span>
+                                <span>${hasPacket ? "Application Packet Ready" : "Resume Ready"}</span>
                                 <span style="font-size:0.78rem;">validation ${artifact.validation.score}</span>
                             </div>
                             <div style="font-size:0.76rem;color:var(--text-secondary);margin-top:6px;">Fit: ${artifact.validation.fit_label || "unknown"} | keywords: ${(artifact.validation.matched_keywords || []).slice(0, 6).join(", ") || "none"}</div>
+                            <div class="pill-row" style="margin-top:8px;">
+                                <span class="pill pill-success">${status.replaceAll("_", " ")}</span>
+                                <span class="pill pill-default">resume</span>
+                                ${artifact.cover_letter && artifact.cover_letter.pdf_url ? `<span class="pill pill-default">cover letter</span>` : ""}
+                                ${artifact.draft_answers && artifact.draft_answers.markdown_url ? `<span class="pill pill-default">answers</span>` : ""}
+                            </div>
+                            ${applicationAssetsMarkup(artifact)}
+                            <div class="status-controls">
+                                <select id="job-status-${job.id}" class="select">${statusOptionsMarkup(status)}</select>
+                                <button class="btn btn-secondary btn-sm" onclick="saveApplicationStatus('${job.id}')">Save Status</button>
+                            </div>
                             <div class="job-actions" style="margin-top:8px;">
                                 <button class="btn btn-primary btn-sm" onclick='openPreviewFromPayload("${encodeURIComponent(JSON.stringify(artifact))}")'>Preview</button>
-                                <a class="btn btn-success btn-sm" href="${artifact.download_url}" target="_blank" rel="noreferrer">Download PDF</a>
+                                <button class="btn btn-success btn-sm" onclick="launchAutofill('${job.id}')">Autofill</button>
                                 <button class="btn btn-secondary btn-sm" onclick="window.open('${job.url}', '_blank')">Open Job</button>
                             </div>
                         </div>
                     ` : `
                         <div class="job-actions">
-                            <button class="btn btn-primary btn-sm" onclick="generateForJob('${job.id}')">Generate Resume</button>
+                            <button class="btn btn-primary btn-sm" onclick="generateForJob('${job.id}')">Prepare Application</button>
                             <button class="btn btn-secondary btn-sm" onclick="window.open('${job.url}', '_blank')">Open Job</button>
                         </div>
                     `}
@@ -1742,6 +1822,7 @@
                 <span class="pill pill-success">match ${artifact.match.score}</span>
                 <span class="pill pill-default">validation ${artifact.validation.score}</span>
                 <span class="pill pill-muted">${artifact.validation.fit_label || "fit unknown"}</span>
+                <span class="pill pill-success">${(artifact.application_status?.status || "prepared").replaceAll("_", " ")}</span>
             `;
             if (AUTOMATION_DISABLE_PDF) {
                 previewBody.innerHTML = `<div class="preview-empty">PDF preview disabled for automation run. Title: ${artifact.title}</div>`;
@@ -1776,13 +1857,19 @@
                         <span class="pill pill-muted">${artifact.location}</span>
                         <span class="pill pill-success">match ${artifact.match.score}</span>
                         <span class="pill pill-default">val ${artifact.validation.score}</span>
+                        <span class="pill pill-success">${(artifact.application_status?.status || "prepared").replaceAll("_", " ")}</span>
                     </div>
                     <div style="font-size:0.76rem;color:var(--text-muted);margin-top:8px;">Keywords: ${(artifact.validation.matched_keywords || []).slice(0, 8).join(", ") || "none"}</div>
                     ${artifact.validation.issues && artifact.validation.issues.length ? `<div class="issues">${artifact.validation.issues.join(" ")}</div>` : ""}
                     ${artifact.validation.warnings && artifact.validation.warnings.length ? `<div class="warnings">${artifact.validation.warnings.join(" ")}</div>` : ""}
+                    ${applicationAssetsMarkup(artifact)}
+                    <div class="status-controls">
+                        <select id="artifact-status-${artifact.job_id}" class="select">${statusOptionsMarkup(artifact.application_status?.status || "prepared")}</select>
+                        <button class="btn btn-secondary btn-sm" onclick="saveApplicationStatus('${artifact.job_id}', true)">Save Status</button>
+                    </div>
                     <div class="job-actions" style="margin-top:10px;">
                         <button class="btn btn-secondary btn-sm" onclick='openPreviewFromPayload("${encodeURIComponent(JSON.stringify(artifact))}")'>Preview</button>
-                        <a class="btn btn-primary btn-sm" href="${artifact.download_url}" target="_blank" rel="noreferrer">Download</a>
+                        <button class="btn btn-primary btn-sm" onclick="launchAutofill('${artifact.job_id}')">Autofill</button>
                         <button class="btn btn-secondary btn-sm" onclick="window.open('${artifact.url}', '_blank')">Open Job</button>
                     </div>
                 </div>
@@ -1838,12 +1925,12 @@
         }
 
         async function generateForJob(jobId) {
-            setStatus(`Generating PDF for ${jobId}...`);
-            showToast("Generating tailored resume...", "info");
+            setStatus(`Preparing application packet for ${jobId}...`);
+            showToast("Generating resume, cover letter, and draft answers...", "info");
             try {
-                await fetchJson(`${API_BASE}/jobs/${jobId}/tailor`, { method: "POST" });
-                showToast("Resume PDF generated.", "success");
-                setStatus("Resume generated.");
+                await fetchJson(`${API_BASE}/jobs/${jobId}/prepare-application`, { method: "POST" });
+                showToast("Application packet generated.", "success");
+                setStatus("Application packet generated.");
                 await loadArtifacts();
                 await loadStats();
             } catch (error) {
@@ -1852,17 +1939,56 @@
             }
         }
 
+        async function saveApplicationStatus(jobId, artifactPanel = false) {
+            const primary = document.getElementById(`job-status-${jobId}`);
+            const secondary = document.getElementById(`artifact-status-${jobId}`);
+            const select = artifactPanel ? (secondary || primary) : (primary || secondary);
+            if (!select) return;
+            try {
+                await fetchJson(`${API_BASE}/jobs/${jobId}/status`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ status: select.value })
+                });
+                showToast("Application status updated.", "success");
+                await loadArtifacts();
+                await loadJobs();
+            } catch (error) {
+                showToast(error.message, "error");
+                setStatus(error.message);
+            }
+        }
+
+        async function launchAutofill(jobId) {
+            setStatus(`Opening application page and autofilling ${jobId}...`);
+            showToast("Launching application autofill...", "info");
+            try {
+                const data = await fetchJson(`${API_BASE}/jobs/${jobId}/autofill`, { method: "POST" });
+                const result = data.result || {};
+                const outcome = result.success
+                    ? `Autofill opened. Filled: ${(result.filled_fields || []).join(", ") || "no text fields"}.`
+                    : `Autofill could not complete: ${result.message || "unknown error"}`;
+                showToast(outcome, result.success ? "success" : "error");
+                setStatus(outcome);
+                await loadArtifacts();
+                await loadJobs();
+            } catch (error) {
+                showToast(error.message, "error");
+                setStatus(error.message);
+            }
+        }
+
         async function generateTopMatches() {
-            setStatus("Generating PDFs for top matches...");
-            showToast("Generating resumes for top matches...", "info");
+            setStatus("Preparing application packets for top matches...");
+            showToast("Generating application packets for top matches...", "info");
             try {
                 const data = await fetchJson(`${API_BASE}/pipeline/run`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ limit: 5 })
                 });
-                showToast(`${data.total} resume PDFs generated.`, "success");
-                setStatus(`Generated ${data.total} tailored resumes.`);
+                showToast(`${data.total} application packets generated.`, "success");
+                setStatus(`Generated ${data.total} application packets.`);
                 await loadArtifacts();
                 await loadStats();
             } catch (error) {
@@ -1874,7 +2000,7 @@
         async function refreshAndGenerate() {
             const button = document.getElementById("refreshPipelineButton");
             button.disabled = true;
-            setStatus("Refreshing jobs and generating resumes...");
+            setStatus("Refreshing jobs and generating application packets...");
             showToast("Running full pipeline...", "info");
             try {
                 const data = await fetchJson(`${API_BASE}/pipeline/refresh`, {
@@ -1888,7 +2014,7 @@
                     newJobs: data.report.new_jobs || 0,
                     generated: data.total || 0,
                 });
-                showToast(`${data.report.new_jobs || 0} new jobs, ${data.total || 0} resumes generated.`, "success");
+                showToast(`${data.report.new_jobs || 0} new jobs, ${data.total || 0} application packets generated.`, "success");
                 setStatus(`Refresh complete.`);
                 await Promise.all([loadStats(), loadSources(), loadProfile(), loadJobs(), loadDashboardJobs(), loadArtifacts()]);
             } catch (error) {

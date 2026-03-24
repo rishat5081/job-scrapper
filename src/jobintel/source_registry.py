@@ -25,6 +25,7 @@ class SourceDefinition:
     automation_allowed: bool
     notes: str
     api_url: str = ""
+    timeout_seconds: int = 30
     tags: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
@@ -44,6 +45,7 @@ SOURCE_DEFINITIONS = [
         automation_allowed=True,
         notes="Enabled by default through the public Remotive jobs API.",
         api_url="https://remotive.com/api/remote-jobs",
+        timeout_seconds=25,
         tags=["remote", "engineering", "api"],
     ),
     SourceDefinition(
@@ -57,6 +59,7 @@ SOURCE_DEFINITIONS = [
         enabled_by_default=True,
         automation_allowed=True,
         notes="Enabled with conservative HTML parsing of public job listings.",
+        timeout_seconds=25,
         tags=["remote", "engineering", "html"],
     ),
     SourceDefinition(
@@ -71,6 +74,7 @@ SOURCE_DEFINITIONS = [
         automation_allowed=True,
         notes="Enabled by default through the public Remote OK API endpoint.",
         api_url="https://remoteok.com/api",
+        timeout_seconds=25,
         tags=["remote", "engineering", "api"],
     ),
     SourceDefinition(
@@ -84,6 +88,7 @@ SOURCE_DEFINITIONS = [
         enabled_by_default=True,
         automation_allowed=True,
         notes="Scraped via python-jobspy library. No API key needed.",
+        timeout_seconds=40,
         tags=["enterprise", "jobspy"],
     ),
     SourceDefinition(
@@ -97,6 +102,7 @@ SOURCE_DEFINITIONS = [
         enabled_by_default=True,
         automation_allowed=True,
         notes="Scraped via python-jobspy library. No API key needed.",
+        timeout_seconds=40,
         tags=["enterprise", "jobspy"],
     ),
     SourceDefinition(
@@ -110,6 +116,7 @@ SOURCE_DEFINITIONS = [
         enabled_by_default=True,
         automation_allowed=True,
         notes="Scraped via python-jobspy library. No API key needed.",
+        timeout_seconds=40,
         tags=["enterprise", "jobspy"],
     ),
     SourceDefinition(
@@ -189,6 +196,7 @@ SOURCE_DEFINITIONS = [
         automation_allowed=True,
         notes="Free JSON API with salary data, seniority levels, and timezone filters.",
         api_url="https://himalayas.app/jobs/api",
+        timeout_seconds=25,
         tags=["remote", "api", "salary-data"],
     ),
     SourceDefinition(
@@ -203,6 +211,7 @@ SOURCE_DEFINITIONS = [
         automation_allowed=True,
         notes="Free remote jobs API with salary ranges, job levels, and industry data.",
         api_url="https://jobicy.com/api/v2/remote-jobs",
+        timeout_seconds=25,
         tags=["remote", "api", "salary-data"],
     ),
     SourceDefinition(
@@ -217,6 +226,7 @@ SOURCE_DEFINITIONS = [
         automation_allowed=True,
         notes="Free-tier API covering 10+ countries. Requires ADZUNA_APP_ID and ADZUNA_APP_KEY env vars.",
         api_url="https://api.adzuna.com/v1/api/jobs",
+        timeout_seconds=25,
         tags=["global", "api", "salary-estimates"],
     ),
 ]

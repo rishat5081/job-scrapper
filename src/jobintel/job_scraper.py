@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import multiprocessing as mp
 import os
 import platform
 import re
@@ -74,6 +75,32 @@ def normalize_location(raw_location: str, default_location: str = "Remote") -> t
     return raw, "onsite"
 
 
+def normalize_tags(raw_tags: list | tuple | set | None) -> list[str]:
+    normalized: list[str] = []
+
+    def visit(value) -> None:
+        if value is None:
+            return
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                visit(item)
+            return
+        text = str(value).strip()
+        if text:
+            normalized.append(text)
+
+    visit(raw_tags or [])
+
+    deduped: list[str] = []
+    seen = set()
+    for tag in normalized:
+        key = tag.lower()
+        if key not in seen:
+            deduped.append(tag)
+            seen.add(key)
+    return deduped
+
+
 def normalize_job(
     source_key: str,
     company: str,
@@ -88,7 +115,7 @@ def normalize_job(
 ) -> dict:
     source = get_source(source_key)
     normalized_location, remote_policy = normalize_location(location)
-    tags = tags or []
+    tags = normalize_tags(tags)
 
     return {
         "id": generate_job_id(company, title, normalized_location, source_key),
@@ -550,6 +577,61 @@ SCRAPERS = {
 }
 
 
+def _scrape_source_worker(source_key: str, queue: mp.Queue) -> None:
+    scraper = SCRAPERS[source_key]
+    started = time.time()
+    try:
+        jobs = scraper()
+        queue.put(
+            {
+                "status": "ok",
+                "jobs": jobs,
+                "elapsed_seconds": round(time.time() - started, 2),
+            }
+        )
+    except Exception as exc:
+        queue.put(
+            {
+                "status": "error",
+                "error": str(exc),
+                "jobs": [],
+                "elapsed_seconds": round(time.time() - started, 2),
+            }
+        )
+
+
+def run_scraper_with_timeout(source_key: str, timeout_seconds: int) -> dict:
+    try:
+        context = mp.get_context("fork")
+    except ValueError:
+        context = mp.get_context()
+
+    queue = context.Queue()
+    process = context.Process(target=_scrape_source_worker, args=(source_key, queue))
+    process.start()
+    process.join(timeout_seconds)
+
+    if process.is_alive():
+        process.terminate()
+        process.join()
+        return {
+            "status": "timeout",
+            "jobs": [],
+            "error": f"Source exceeded {timeout_seconds}s timeout window.",
+            "elapsed_seconds": timeout_seconds,
+        }
+
+    if not queue.empty():
+        return queue.get()
+
+    return {
+        "status": "error",
+        "jobs": [],
+        "error": "Source process exited without returning a result.",
+        "elapsed_seconds": timeout_seconds,
+    }
+
+
 def merge_jobs(existing_jobs: list[dict], new_jobs: list[dict]) -> tuple[list[dict], int]:
     deduped = {job["id"]: job for job in existing_jobs}
     added_count = 0
@@ -571,17 +653,23 @@ def scrape_all_jobs(notify: bool = True) -> tuple[list[dict], dict]:
     started = time.time()
 
     for source in list_enabled_sources():
-        scraper = SCRAPERS.get(source.key)
-        if not scraper:
+        if source.key not in SCRAPERS:
             source_reports.append({"source_key": source.key, "status": "skipped", "reason": "No scraper registered"})
             continue
 
-        try:
-            jobs = scraper()
+        result = run_scraper_with_timeout(source.key, source.timeout_seconds)
+        jobs = result.get("jobs", [])
+        if jobs:
             all_new_jobs.extend(jobs)
-            source_reports.append({"source_key": source.key, "status": "ok", "jobs_found": len(jobs)})
-        except Exception as exc:
-            source_reports.append({"source_key": source.key, "status": "error", "error": str(exc)})
+        source_reports.append(
+            {
+                "source_key": source.key,
+                "status": result.get("status", "error"),
+                "jobs_found": len(jobs),
+                "elapsed_seconds": result.get("elapsed_seconds"),
+                **({"error": result["error"]} if result.get("error") else {}),
+            }
+        )
 
         time.sleep(1)
 

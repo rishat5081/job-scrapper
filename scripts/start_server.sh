@@ -1,9 +1,9 @@
 #!/bin/bash
-# Start the Job Tracker Dashboard Server
+# Start the JobIntel dashboard server
 
 cd "$(dirname "$0")/.."
 
-echo "🚀 Starting Job Tracker Dashboard..."
+echo "🚀 Starting JobIntel dashboard..."
 echo ""
 
 # Check if venv exists

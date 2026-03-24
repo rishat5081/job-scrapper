@@ -6,10 +6,18 @@ Flask API for governed job ingestion and resume tailoring.
 from __future__ import annotations
 
 import math
+import mimetypes
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 from jobintel import TEMPLATES_DIR
+from jobintel.application_autofill import launch_autofill_session
+from jobintel.application_materials import (
+    STATUS_OPTIONS,
+    get_application_status,
+    load_application_tracker,
+    upsert_application_status,
+)
 from jobintel.job_scraper import filter_jobs, load_last_scrape, load_scraped_jobs, scrape_all_jobs
 from jobintel.resume_pipeline import (
     GENERATED_DIR,
@@ -20,6 +28,7 @@ from jobintel.resume_pipeline import (
     match_jobs_to_profile,
     public_profile,
     save_resume_profile,
+    save_tailored_resume_artifact,
     save_uploaded_resume,
     tailor_resume_for_job,
 )
@@ -49,6 +58,20 @@ def _get_job_by_id(job_id: str) -> dict | None:
 def _artifact_public_view(artifact: dict) -> dict:
     result = dict(artifact)
     result["download_url"] = f"/api/generated-resumes/{artifact['pdf_filename']}"
+    cover_letter = dict(result.get("cover_letter", {}))
+    if cover_letter.get("pdf_filename"):
+        cover_letter["pdf_url"] = f"/api/generated-files/{cover_letter['pdf_filename']}"
+    if cover_letter.get("markdown_filename"):
+        cover_letter["markdown_url"] = f"/api/generated-files/{cover_letter['markdown_filename']}"
+    result["cover_letter"] = cover_letter
+
+    draft_answers = dict(result.get("draft_answers", {}))
+    if draft_answers.get("markdown_filename"):
+        draft_answers["markdown_url"] = f"/api/generated-files/{draft_answers['markdown_filename']}"
+    if draft_answers.get("json_filename"):
+        draft_answers["json_url"] = f"/api/generated-files/{draft_answers['json_filename']}"
+    result["draft_answers"] = draft_answers
+    result["application_status"] = get_application_status(artifact.get("job_id", ""))
     return result
 
 
@@ -58,6 +81,13 @@ def _generate_artifacts_for_jobs(profile: dict, jobs: list[dict]) -> list[dict]:
         artifact = tailor_resume_for_job(profile, job)
         artifacts.append(_artifact_public_view(artifact))
     return artifacts
+
+
+def _get_artifact_by_job_id(job_id: str) -> dict | None:
+    for artifact in load_tailored_resumes():
+        if artifact.get("job_id") == job_id:
+            return artifact
+    return None
 
 
 @app.route("/")
@@ -237,6 +267,74 @@ def tailor_job(job_id: str):
     return jsonify({"success": True, "artifact": _artifact_public_view(artifact)})
 
 
+@app.route("/api/jobs/<job_id>/prepare-application", methods=["POST"])
+def prepare_application(job_id: str):
+    return tailor_job(job_id)
+
+
+@app.route("/api/jobs/<job_id>/status", methods=["GET"])
+def job_status(job_id: str):
+    return jsonify(
+        {"success": True, "job_id": job_id, "status": get_application_status(job_id), "status_options": STATUS_OPTIONS}
+    )
+
+
+@app.route("/api/jobs/<job_id>/status", methods=["POST"])
+def update_job_status(job_id: str):
+    payload = request.get_json(silent=True) or {}
+    status = payload.get("status")
+    notes = payload.get("notes")
+
+    if status and status not in STATUS_OPTIONS:
+        return _json_error("Invalid application status.")
+
+    updated = upsert_application_status(job_id, status=status, notes=notes)
+    return jsonify({"success": True, "job_id": job_id, "status": updated, "status_options": STATUS_OPTIONS})
+
+
+@app.route("/api/jobs/<job_id>/autofill", methods=["POST"])
+def autofill_job(job_id: str):
+    profile = load_resume_profile()
+    if not profile:
+        return _json_error("Upload a resume before launching autofill.", 412)
+
+    job = _get_job_by_id(job_id)
+    if not job:
+        return _json_error("Job not found.", 404)
+
+    artifact = _get_artifact_by_job_id(job_id)
+    if not artifact:
+        artifact = tailor_resume_for_job(profile, job)
+
+    autofill = artifact.get("autofill", {})
+    payload = autofill.get("payload", {})
+    if not payload:
+        return _json_error("Application packet is missing autofill data.", 409)
+
+    result = launch_autofill_session(job, payload)
+    status_update = {"last_autofill_at": result.get("opened_at"), "last_autofill_success": result.get("success", False)}
+    if result.get("success") and artifact.get("application_status", {}).get("status") == "prepared":
+        status_update["status"] = "ready_to_review"
+    updated_status = upsert_application_status(job_id, **status_update)
+
+    refreshed_artifact = _get_artifact_by_job_id(job_id)
+    if refreshed_artifact:
+        refreshed_artifact.setdefault("autofill", {})
+        refreshed_artifact["autofill"]["last_result"] = result
+        refreshed_artifact["application_status"] = updated_status
+        save_tailored_resume_artifact(refreshed_artifact)
+
+    return jsonify(
+        {
+            "success": True,
+            "job_id": job_id,
+            "result": result,
+            "status": updated_status,
+            "artifact": _artifact_public_view(refreshed_artifact or artifact),
+        }
+    )
+
+
 @app.route("/api/pipeline/run", methods=["POST"])
 def run_pipeline():
     profile = load_resume_profile()
@@ -288,7 +386,7 @@ def refresh_pipeline():
 @app.route("/api/generated-resumes", methods=["GET"])
 def generated_resumes():
     artifacts = [_artifact_public_view(item) for item in load_tailored_resumes()]
-    return jsonify({"success": True, "total": len(artifacts), "artifacts": artifacts})
+    return jsonify({"success": True, "total": len(artifacts), "artifacts": artifacts, "status_options": STATUS_OPTIONS})
 
 
 @app.route("/api/generated-resumes/<path:filename>", methods=["GET"])
@@ -297,6 +395,21 @@ def download_generated_resume(filename: str):
     if not path.exists():
         return _json_error("Generated PDF not found.", 404)
     return send_file(path, mimetype="application/pdf", as_attachment=True, download_name=path.name)
+
+
+@app.route("/api/generated-files/<path:filename>", methods=["GET"])
+def download_generated_file(filename: str):
+    path = GENERATED_DIR / filename
+    if not path.exists():
+        return _json_error("Generated file not found.", 404)
+    mimetype, _encoding = mimetypes.guess_type(path.name)
+    return send_file(path, mimetype=mimetype or "application/octet-stream", as_attachment=True, download_name=path.name)
+
+
+@app.route("/api/application-tracker", methods=["GET"])
+def application_tracker():
+    tracker = load_application_tracker()
+    return jsonify({"success": True, "tracker": tracker, "status_options": STATUS_OPTIONS})
 
 
 @app.route("/api/stats", methods=["GET"])
@@ -323,6 +436,9 @@ def stats():
                 "sources_in_catalog": len(list_sources()),
                 "strong_matches": strong_matches,
                 "generated_resumes": len(generated),
+                "prepared_applications": len(
+                    [item for item in generated if item.get("cover_letter") and item.get("draft_answers")]
+                ),
                 "has_profile": bool(profile),
                 "jobs_by_source": by_source,
             },
