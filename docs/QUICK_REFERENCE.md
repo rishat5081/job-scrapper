@@ -1,134 +1,94 @@
-# ⚡ Quick Reference Card
+# Quick Reference
 
-## 🚀 Installation (First Time Only)
+## Start The App
 
 ```bash
 cd /Users/user/Desktop/Work/jobs
-./install.sh
+./start.sh
 ```
 
----
+Dashboard:
+- `http://localhost:8080`
 
-## 🎮 Daily Commands
-
-### Start Dashboard
+Health check:
 ```bash
-./start_server.sh
-```
-Then open: **http://localhost:5000**
-
-### Manual Scrape (Optional)
-```bash
-source venv/bin/activate
-python job_scraper.py scrape
+curl http://127.0.0.1:8080/api/health
 ```
 
----
-
-## 🔄 Setup Auto-Scraping (Once)
+## Run The Daily Task Pipeline
 
 ```bash
-./setup_auto_scraper.sh
+cd /Users/user/Desktop/Work/jobs
+PYTHONPATH=src venv/bin/python scripts/run_today_tasks.py \
+  --allow-scraped-today-fallback \
+  --min-match-score 90 \
+  --min-validation-score 70
 ```
-Jobs will be scraped every 3 hours automatically.
 
----
+What it does:
+- scrapes all enabled sources (with per-source timeouts)
+- selects today's batch
+- filters to relevant engineering roles
+- matches jobs to the loaded resume profile
+- generates tailored resume PDFs
+- generates cover letters and draft interview answers
+- validates each output (resume + packet combined)
+- writes reports to `data/reports/`
 
-## 📊 Dashboard URL
+## Re-Run Without Scraping
 
-**http://localhost:5000**
-
-Bookmark this!
-
----
-
-## 🔔 What You'll Get
-
-- ✅ **30-60 jobs** on first scrape
-- ✅ **5-15 new jobs** per day
-- ✅ macOS notifications for new jobs
-- ✅ Search & filter by location
-- ✅ Track applications with status
-- ✅ One-click job viewing
-
----
-
-## 📍 Job Locations
-
-- Dubai / UAE
-- Netherlands
-- Germany
-- Remote (Worldwide/Europe)
-
----
-
-## 🎯 Job Sources
-
-1. **Remotive** - Remote jobs API
-2. **We Work Remotely** - #1 remote board
-3. **Remote OK** - Digital nomad jobs
-
----
-
-## ⌨️ Keyboard Shortcuts
-
-In Dashboard:
-- Type in search box to filter jobs
-- Click location tabs to filter
-- Click "Track This" to save jobs
-
----
-
-## 📂 Important Files
-
-| File | Purpose |
-|------|---------|
-| `start_server.sh` | Start dashboard |
-| `START_HERE.md` | Getting started guide |
-| `README_SCRAPER.md` | Full documentation |
-| `scraped_jobs.json` | All scraped jobs |
-| `job_tracker.json` | Your applications |
-
----
-
-## 🛠️ Troubleshooting
-
-**Dashboard not loading?**
 ```bash
-./start_server.sh
+cd /Users/user/Desktop/Work/jobs
+PYTHONPATH=src venv/bin/python scripts/run_today_tasks.py \
+  --skip-scrape \
+  --allow-scraped-today-fallback \
+  --min-match-score 90 \
+  --min-validation-score 70
 ```
 
-**No jobs appearing?**
+## Test Commands
+
 ```bash
-source venv/bin/activate
-python job_scraper.py scrape
+cd /Users/user/Desktop/Work/jobs
+PYTHONPATH=src venv/bin/python -m pytest -q
+python3 -m py_compile src/jobintel/*.py scripts/run_today_tasks.py
 ```
 
-**Need to reinstall?**
+## Important Paths
+
+- `src/jobintel/`: application package (9 modules)
+- `templates/live_dashboard.html`: dashboard UI
+- `scripts/run_today_tasks.py`: daily pipeline runner
+- `data/resume_profile.json`: parsed resume profile
+- `data/tailored_resumes.json`: artifact registry
+- `data/application_tracker.json`: application status tracking
+- `data/generated_resumes/`: tailored PDFs, cover letters, draft answers
+- `data/reports/`: daily run reports
+
+## Current Daily Report Format
+
+- JSON: `data/reports/today_tasks_YYYY-MM-DD.json`
+- Markdown: `data/reports/today_tasks_YYYY-MM-DD.md`
+
+Each report includes:
+- source-by-source scrape status
+- how today's jobs were selected
+- how many jobs were filtered out as non-relevant
+- generated PDFs and validation results (resume + packet scores)
+- items needing manual review
+
+## Application Lifecycle
+
+Status flow: `prepared` > `ready_to_review` > `applied` > `interview` > `offer` / `rejected` / `archived`
+
+Update via API:
 ```bash
-rm -rf venv
-./install.sh
+curl -X POST http://127.0.0.1:8080/api/jobs/JOB_ID/status \
+  -H "Content-Type: application/json" \
+  -d '{"status": "applied", "notes": "Applied on company website"}'
 ```
 
----
-
-## ✅ Daily Checklist
-
-- [ ] Open http://localhost:5000
-- [ ] Click "Scrape Jobs Now"
-- [ ] Browse new listings
-- [ ] Track interesting positions
-- [ ] Apply to 2-3 jobs
-- [ ] Update application statuses
-
----
-
-## 🎯 Weekly Goals
-
-- Track: 10-15 jobs
-- Apply: 5-10 jobs
-- Interviews: 1-3 scheduled
-
----
-
-**Keep this card handy!** 📌
+View tracker:
+```bash
+curl http://127.0.0.1:8080/api/application-tracker
+```
