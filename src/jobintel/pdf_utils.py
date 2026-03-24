@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""
-HTML-to-PDF resume rendering backed by headless Chrome.
-"""
+"""HTML-to-PDF rendering backed by headless Chrome."""
 
 from __future__ import annotations
 
@@ -11,6 +9,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 
 CHROME_CANDIDATES = [
@@ -296,6 +295,82 @@ def _resume_html(resume: dict) -> str:
 """
 
 
+def _cover_letter_html(document: dict) -> str:
+    title = document.get("title", "Cover Letter")
+    subtitle = document.get("subtitle", "")
+    contact_line = document.get("contact_line", "")
+    body = document.get("body", "")
+    paragraphs = [part.strip() for part in body.split("\n\n") if part.strip()]
+    body_html = "".join(f"<p>{_escape(part)}</p>" for part in paragraphs)
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{_escape(title)}</title>
+  <style>
+    @page {{
+      size: A4;
+      margin: 18mm;
+    }}
+
+    body {{
+      margin: 0;
+      font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #fff;
+      font-size: 12px;
+      line-height: 1.65;
+    }}
+
+    .page {{
+      width: 100%;
+    }}
+
+    .header {{
+      border-bottom: 2px solid #1d4ed8;
+      padding-bottom: 12px;
+      margin-bottom: 18px;
+    }}
+
+    h1 {{
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.15;
+    }}
+
+    .subtitle {{
+      margin-top: 6px;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 700;
+    }}
+
+    .contact {{
+      margin-top: 6px;
+      color: #64748b;
+      font-size: 10px;
+    }}
+
+    p {{
+      margin: 0 0 12px;
+    }}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="header">
+      <h1>{_escape(title)}</h1>
+      {f'<div class="subtitle">{_escape(subtitle)}</div>' if subtitle else ""}
+      {f'<div class="contact">{_escape(contact_line)}</div>' if contact_line else ""}
+    </header>
+    <main>{body_html}</main>
+  </div>
+</body>
+</html>
+"""
+
+
 def _legacy_write_pdf(output_path: Path, resume: dict) -> Path:
     from pathlib import Path as _Path
 
@@ -311,51 +386,83 @@ def _legacy_write_pdf(output_path: Path, resume: dict) -> Path:
     return output_path
 
 
-def write_resume_pdf(output_path: str | Path, resume: dict) -> Path:
+def _render_html_pdf(output_path: str | Path, html_content: str) -> Path:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
 
     chrome = _find_chrome()
     if not chrome:
-        return _legacy_write_pdf(path, resume)
+        return _legacy_write_pdf(path, {})
 
-    html_content = _resume_html(resume)
+    last_error = "unknown error"
+    for _attempt in range(3):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_dir_path = Path(temp_dir)
+            html_path = temp_dir_path / "resume.html"
+            pdf_path = temp_dir_path / "resume.pdf"
+            log_path = temp_dir_path / "chrome.log"
+            html_path.write_text(html_content, encoding="utf-8")
 
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_dir_path = Path(temp_dir)
-        html_path = temp_dir_path / "resume.html"
-        pdf_path = temp_dir_path / "resume.pdf"
-        html_path.write_text(html_content, encoding="utf-8")
+            command = [
+                chrome,
+                "--headless=new",
+                "--disable-gpu",
+                "--no-sandbox",
+                "--no-first-run",
+                "--no-default-browser-check",
+                "--no-pdf-header-footer",
+                "--virtual-time-budget=1500",
+                f"--print-to-pdf={pdf_path}",
+                html_path.as_uri(),
+            ]
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=45,
+            )
+            log_path.write_text((result.stderr or "") + "\n" + (result.stdout or ""), encoding="utf-8")
 
-        log_path = temp_dir_path / "chrome.log"
-        shell_script = f"""
-        {shlex.quote(chrome)} --headless --disable-gpu --no-sandbox --no-first-run --no-default-browser-check --no-pdf-header-footer --virtual-time-budget=1000 --print-to-pdf={shlex.quote(str(pdf_path))} {shlex.quote(html_path.as_uri())} >{shlex.quote(str(log_path))} 2>&1 &
-        pid=$!
-        for i in {{1..20}}; do
-          if [ -s {shlex.quote(str(pdf_path))} ]; then
-            break
-          fi
-          sleep 1
-        done
-        kill $pid 2>/dev/null || true
-        wait $pid 2>/dev/null || true
-        """
-        shell = shutil.which("zsh") or shutil.which("bash") or "/bin/sh"
-        result = subprocess.run(
-            [shell, "-c", shell_script],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
+            if pdf_path.exists() and pdf_path.stat().st_size > 0:
+                path.write_bytes(pdf_path.read_bytes())
+                return path
 
-        if not pdf_path.exists() or pdf_path.stat().st_size == 0:
-            chrome_log = log_path.read_text(encoding="utf-8", errors="ignore")
-            raise RuntimeError(
-                "Chrome PDF generation failed: "
-                + ((chrome_log or result.stderr or result.stdout).strip() or "unknown error")
+            shell_script = f"""
+            {shlex.quote(chrome)} --headless=new --disable-gpu --no-sandbox --no-first-run --no-default-browser-check --no-pdf-header-footer --virtual-time-budget=1500 --print-to-pdf={shlex.quote(str(pdf_path))} {shlex.quote(html_path.as_uri())} >{shlex.quote(str(log_path))} 2>&1 &
+            pid=$!
+            for i in {{1..25}}; do
+              if [ -s {shlex.quote(str(pdf_path))} ]; then
+                break
+              fi
+              sleep 1
+            done
+            kill $pid 2>/dev/null || true
+            wait $pid 2>/dev/null || true
+            """
+            shell = shutil.which("zsh") or shutil.which("bash") or "/bin/sh"
+            result = subprocess.run(
+                [shell, "-c", shell_script],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=40,
             )
 
-        path.write_bytes(pdf_path.read_bytes())
+            if pdf_path.exists() and pdf_path.stat().st_size > 0:
+                path.write_bytes(pdf_path.read_bytes())
+                return path
 
-    return path
+            chrome_log = log_path.read_text(encoding="utf-8", errors="ignore")
+            last_error = (chrome_log or result.stderr or result.stdout).strip() or last_error
+        time.sleep(1)
+
+    raise RuntimeError(f"Chrome PDF generation failed: {last_error}")
+
+
+def write_resume_pdf(output_path: str | Path, resume: dict) -> Path:
+    return _render_html_pdf(output_path, _resume_html(resume))
+
+
+def write_cover_letter_pdf(output_path: str | Path, document: dict) -> Path:
+    return _render_html_pdf(output_path, _cover_letter_html(document))

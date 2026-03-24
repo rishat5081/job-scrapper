@@ -1,7 +1,9 @@
 """Tests for job_scraper.py - filters, parsers, helpers, and scraper registry."""
 
+import time
 import unittest
 from datetime import UTC, datetime, timedelta
+from unittest import mock
 
 from jobintel.job_scraper import (
     SCRAPERS,
@@ -10,8 +12,19 @@ from jobintel.job_scraper import (
     infer_experience_level,
     normalize_job,
     normalize_location,
+    normalize_tags,
     parse_salary_range,
+    run_scraper_with_timeout,
 )
+
+
+def _fast_scraper():
+    return [{"id": "fast"}]
+
+
+def _slow_scraper():
+    time.sleep(1.5)
+    return [{"id": "slow"}]
 
 
 class TestNormalizeLocation(unittest.TestCase):
@@ -90,6 +103,29 @@ class TestNormalizeJob(unittest.TestCase):
     def test_compliance_for_enabled_source(self):
         job = normalize_job("remotive", "X", "Y", "Z", "", "", "", "", "", [])
         self.assertTrue(job["compliance"]["automation_allowed"])
+
+    def test_nested_tags_are_flattened(self):
+        job = normalize_job(
+            "remotive",
+            "Acme",
+            "Software Engineer",
+            "Remote",
+            "https://example.com",
+            "A job description.",
+            "$100k",
+            "Full-time",
+            "2026-01-01",
+            ["python", ["aws", "docker"], {"remote"}],
+        )
+        self.assertEqual(job["tags"], ["python", "aws", "docker", "remote"])
+
+
+class TestNormalizeTags(unittest.TestCase):
+    def test_flattens_nested_structures(self):
+        self.assertEqual(
+            normalize_tags(["python", ["aws", "docker"], ("remote",), {"senior"}]),
+            ["python", "aws", "docker", "remote", "senior"],
+        )
 
 
 class TestParseSalaryRange(unittest.TestCase):
@@ -306,6 +342,22 @@ class TestScrapersRegistry(unittest.TestCase):
     def test_all_scrapers_are_callable(self):
         for key, func in SCRAPERS.items():
             self.assertTrue(callable(func), f"{key} scraper is not callable")
+
+
+class TestRunScraperWithTimeout(unittest.TestCase):
+    def test_returns_jobs_for_fast_scraper(self):
+        with mock.patch.dict("jobintel.job_scraper.SCRAPERS", {"test_fast": _fast_scraper}, clear=False):
+            result = run_scraper_with_timeout("test_fast", 2)
+
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(len(result["jobs"]), 1)
+
+    def test_times_out_slow_scraper(self):
+        with mock.patch.dict("jobintel.job_scraper.SCRAPERS", {"test_slow": _slow_scraper}, clear=False):
+            result = run_scraper_with_timeout("test_slow", 1)
+
+        self.assertEqual(result["status"], "timeout")
+        self.assertEqual(result["jobs"], [])
 
 
 if __name__ == "__main__":

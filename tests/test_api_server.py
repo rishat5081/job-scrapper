@@ -130,9 +130,73 @@ class TestAPIServer(unittest.TestCase):
         self.assertTrue(data["success"])
         self.assertIn("artifacts", data)
 
+    def test_generated_resumes_public_view_includes_packet_urls(self):
+        sample_artifact = {
+            "job_id": "job-1",
+            "company": "Example Corp",
+            "title": "Backend Engineer",
+            "location": "Remote",
+            "source": "Remotive",
+            "url": "https://example.com/jobs/1",
+            "pdf_filename": "job-1.pdf",
+            "validation": {
+                "score": 88,
+                "fit_label": "strong_alignment",
+                "matched_keywords": [],
+                "issues": [],
+                "warnings": [],
+            },
+            "match": {"score": 91},
+            "cover_letter": {"pdf_filename": "job-1_cover_letter.pdf", "markdown_filename": "job-1_cover_letter.md"},
+            "draft_answers": {
+                "markdown_filename": "job-1_draft_answers.md",
+                "json_filename": "job-1_draft_answers.json",
+            },
+        }
+        with patch("jobintel.api_server.load_tailored_resumes", return_value=[sample_artifact]):
+            response = self.client.get("/api/generated-resumes")
+            data = json.loads(response.data)
+            artifact = data["artifacts"][0]
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(artifact["download_url"], "/api/generated-resumes/job-1.pdf")
+            self.assertEqual(artifact["cover_letter"]["pdf_url"], "/api/generated-files/job-1_cover_letter.pdf")
+            self.assertEqual(artifact["draft_answers"]["markdown_url"], "/api/generated-files/job-1_draft_answers.md")
+
     def test_download_nonexistent_resume(self):
         response = self.client.get("/api/generated-resumes/nonexistent.pdf")
         self.assertEqual(response.status_code, 404)
+
+    def test_download_nonexistent_generated_file(self):
+        response = self.client.get("/api/generated-files/nonexistent.md")
+        self.assertEqual(response.status_code, 404)
+
+    def test_application_status_update_endpoint(self):
+        with patch(
+            "jobintel.api_server.upsert_application_status",
+            return_value={"status": "applied", "notes": "", "updated_at": "2026-03-20T00:00:00Z"},
+        ):
+            response = self.client.post(
+                "/api/jobs/job-1/status",
+                data=json.dumps({"status": "applied"}),
+                content_type="application/json",
+            )
+            data = json.loads(response.data)
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(data["success"])
+            self.assertEqual(data["status"]["status"], "applied")
+
+    def test_application_status_rejects_invalid_values(self):
+        response = self.client.post(
+            "/api/jobs/job-1/status",
+            data=json.dumps({"status": "not_real"}),
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_autofill_without_profile(self):
+        with patch("jobintel.api_server.load_resume_profile", return_value=None):
+            response = self.client.post("/api/jobs/test-job/autofill")
+            self.assertEqual(response.status_code, 412)
 
     def test_upload_without_file(self):
         response = self.client.post("/api/profile/upload")

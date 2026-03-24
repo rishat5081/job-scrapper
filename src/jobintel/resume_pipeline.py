@@ -15,6 +15,7 @@ from pathlib import Path
 from bs4 import BeautifulSoup
 
 from jobintel import DATA_DIR
+from jobintel.application_materials import prepare_application_packet
 from jobintel.pdf_utils import write_resume_pdf
 
 UPLOADS_DIR = DATA_DIR / "uploads"
@@ -91,6 +92,34 @@ KNOWN_KEYWORDS = [
     "jira",
     "agile",
 ]
+
+NOISE_KEYWORDS = {
+    "linkedin",
+    "indeed",
+    "glassdoor",
+    "jobspy",
+    "remoteok",
+    "jobicy",
+    "himalayas",
+    "remotive",
+    "weworkremotely",
+}
+
+KEYWORD_ALIASES = {
+    "nodejs": "node.js",
+    "node": "node.js",
+    "expressjs": "express.js",
+    "reactjs": "react",
+    "nextjs": "next.js",
+    "postgres": "postgresql",
+    "js": "javascript",
+    "ts": "typescript",
+}
+
+ADJACENT_EVIDENCE = {
+    "typescript": ["javascript"],
+    "javascript": ["typescript"],
+}
 
 STOPWORDS = {
     "and",
@@ -725,22 +754,49 @@ def public_profile(profile: dict | None) -> dict | None:
 
 
 def extract_job_keywords(job: dict, limit: int = 18) -> list[str]:
+    raw_tags = job.get("tags", [])
+    flattened_tags: list[str] = []
+
+    def visit(value) -> None:
+        if value is None:
+            return
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                visit(item)
+            return
+        flattened_tags.append(str(value))
+
+    visit(raw_tags)
+
     text_parts = [
         job.get("title", ""),
         job.get("description", ""),
-        " ".join(job.get("tags", [])),
+        " ".join(flattened_tags),
         job.get("location", ""),
     ]
     corpus = " ".join(part for part in text_parts if part).lower()
     matches = []
 
+    def normalize_keyword(value: str) -> str:
+        token = value.lower().strip().strip(".,:;()[]{}")
+        token = KEYWORD_ALIASES.get(token, token)
+        return token
+
     for keyword in KNOWN_KEYWORDS:
         if keyword in corpus:
-            matches.append(keyword)
+            normalized = normalize_keyword(keyword)
+            if normalized not in NOISE_KEYWORDS:
+                matches.append(normalized)
 
     for token in re.findall(r"[a-zA-Z][a-zA-Z0-9+#./-]{2,}", corpus):
-        token = token.lower()
-        if token in STOPWORDS or token.isdigit():
+        raw_parts = re.split(r"[/|]", token.lower())
+        normalized_parts = [normalize_keyword(part) for part in raw_parts if part]
+        for token_part in normalized_parts:
+            if token_part in STOPWORDS or token_part in NOISE_KEYWORDS or token_part.isdigit():
+                continue
+            matches.append(token_part)
+        token = normalize_keyword(token)
+        if token in STOPWORDS or token in NOISE_KEYWORDS or token.isdigit():
             continue
         matches.append(token)
 
@@ -754,6 +810,17 @@ def extract_job_keywords(job: dict, limit: int = 18) -> list[str]:
             break
 
     return ordered
+
+
+def _adjacent_supported_keywords(job_keywords: list[str], profile_blob: str) -> list[str]:
+    supported = []
+    for keyword in job_keywords:
+        if keyword in profile_blob:
+            continue
+        adjacent_terms = ADJACENT_EVIDENCE.get(keyword, [])
+        if any(term in profile_blob for term in adjacent_terms):
+            supported.append(keyword)
+    return supported
 
 
 def _score_text_overlap(items: list[str], keywords: list[str]) -> tuple[int, list[str]]:
@@ -826,8 +893,9 @@ def score_job_against_profile(profile: dict, job: dict) -> dict:
     ).lower()
 
     evidenced_keywords = [keyword for keyword in keywords if keyword in profile_blob]
+    adjacent_keywords = _adjacent_supported_keywords(keywords, profile_blob)
     if not evidenced_keywords:
-        evidenced_keywords = keywords[:6]
+        evidenced_keywords = (keywords[:6] + adjacent_keywords[:2])[:6]
 
     skills_overlap, matched_skills = _score_text_overlap(profile.get("skills", []), evidenced_keywords)
     exp_overlap, matched_exp = _score_text_overlap(
@@ -835,12 +903,13 @@ def score_job_against_profile(profile: dict, job: dict) -> dict:
         evidenced_keywords,
     )
 
-    total_possible = max(1, len(evidenced_keywords))
+    total_possible = max(1, len(evidenced_keywords) + len(adjacent_keywords))
     overlap_score = ((skills_overlap * 1.2) + (exp_overlap * 1.6)) / (total_possible * 2.8)
     structure_bonus = 0.1 if profile.get("contact", {}).get("email") else 0.0
     family_terms = _family_supported_terms(profile, family, keywords)
     family_bonus = min(0.14, len(family_terms) * 0.02)
-    score = round(min(1.0, overlap_score + structure_bonus + family_bonus) * 100)
+    adjacent_bonus = min(0.08, len(adjacent_keywords) * 0.03)
+    score = round(min(1.0, overlap_score + structure_bonus + family_bonus + adjacent_bonus) * 100)
 
     matched = []
     seen = set()
@@ -858,6 +927,7 @@ def score_job_against_profile(profile: dict, job: dict) -> dict:
         "matched_keywords": matched[:12],
         "missing_keywords": missing,
         "evidenced_keywords": evidenced_keywords[:12],
+        "adjacent_keywords": adjacent_keywords[:8],
         "family_supported_terms": family_terms[:12],
     }
 
@@ -897,6 +967,33 @@ def _select_ranked_items(items: list[str], keywords: list[str], minimum: int, ma
                 break
 
     return selected[:maximum]
+
+
+def _backfill_keyword_items(
+    selected: list[str], source_items: list[str], keywords: list[str], maximum: int
+) -> list[str]:
+    if len(selected) >= maximum:
+        return selected[:maximum]
+
+    enriched = list(selected)
+    seen = {item.lower() for item in enriched}
+    payload = " ".join(enriched).lower()
+
+    for keyword in keywords:
+        if keyword in payload:
+            continue
+        for item in source_items:
+            lowered = item.lower()
+            if keyword not in lowered or lowered in seen:
+                continue
+            enriched.append(item)
+            seen.add(lowered)
+            payload = " ".join(enriched).lower()
+            break
+        if len(enriched) >= maximum:
+            break
+
+    return enriched[:maximum]
 
 
 def _compose_target_summary(
@@ -1020,15 +1117,18 @@ def validate_tailored_resume(resume: dict, profile: dict, job: dict) -> dict:
     profile_blob = profile.get("raw_text", "").lower()
 
     evidenced_keywords = [keyword for keyword in job_keywords if keyword in profile_blob]
-    unsupported_keywords = [keyword for keyword in job_keywords if keyword not in profile_blob][:8]
+    adjacent_keywords = _adjacent_supported_keywords(job_keywords, profile_blob)
+    unsupported_keywords = [
+        keyword for keyword in job_keywords if keyword not in profile_blob and keyword not in adjacent_keywords
+    ][:8]
     matched_keywords = [keyword for keyword in evidenced_keywords if keyword in payload_blob]
 
     if not evidenced_keywords:
         warnings.append("The source resume has limited direct overlap with the job description keywords.")
 
-    coverage = len([keyword for keyword in evidenced_keywords if keyword in payload_blob]) / max(
-        1, len(evidenced_keywords)
-    )
+    direct_hits = len([keyword for keyword in evidenced_keywords if keyword in payload_blob])
+    adjacent_hits = len(adjacent_keywords)
+    coverage = (direct_hits + (0.5 * adjacent_hits)) / max(1, len(evidenced_keywords) + len(adjacent_keywords))
     score = round((coverage * 80) + (20 if not issues else 0))
     unsupported_ratio = len(unsupported_keywords) / max(1, len(job_keywords))
 
@@ -1036,6 +1136,11 @@ def validate_tailored_resume(resume: dict, profile: dict, job: dict) -> dict:
         warnings.append(
             "Some job keywords were intentionally excluded because they were not evidenced in the source resume: "
             + ", ".join(unsupported_keywords[:5])
+        )
+    if adjacent_keywords:
+        warnings.append(
+            "Some requirements were treated as adjacent skills rather than direct claims: "
+            + ", ".join(adjacent_keywords[:5])
         )
 
     if coverage >= 0.75 and unsupported_ratio <= 0.25 and not issues:
@@ -1051,6 +1156,7 @@ def validate_tailored_resume(resume: dict, profile: dict, job: dict) -> dict:
         "coverage": round(coverage, 2),
         "fit_label": fit_label,
         "matched_keywords": matched_keywords[:12],
+        "adjacent_keywords": adjacent_keywords[:8],
         "unsupported_keywords": unsupported_keywords,
         "issues": issues,
         "warnings": warnings,
@@ -1082,6 +1188,18 @@ def _build_tailored_resume(profile: dict, job: dict, target_keywords: list[str],
         prioritized_keywords,
         minimum=6,
         maximum=12,
+    )
+    selected_skills = _backfill_keyword_items(
+        selected_skills,
+        profile.get("skills", []),
+        prioritized_keywords,
+        maximum=12,
+    )
+    selected_experience = _backfill_keyword_items(
+        selected_experience,
+        profile.get("experience", []),
+        prioritized_keywords,
+        maximum=experience_limit,
     )
     transferable_highlights = _build_transferable_highlights(profile, family, family_supported_terms)
     selected_work_history = _select_work_history(
@@ -1121,47 +1239,69 @@ def save_tailored_resume_artifact(artifact: dict) -> dict:
     return artifact
 
 
-def tailor_resume_for_job(profile: dict, job: dict, output_dir: str | Path | None = None, persist: bool = True) -> dict:
+def tailor_resume_for_job(
+    profile: dict,
+    job: dict,
+    output_dir: str | Path | None = None,
+    persist: bool = True,
+    render_documents: bool = True,
+) -> dict:
     ensure_data_dirs()
     match = score_job_against_profile(profile, job)
-    target_keywords = match.get("matched_keywords") or match.get("evidenced_keywords") or match.get("job_keywords", [])
+    target_keywords = match.get("evidenced_keywords") or match.get("matched_keywords") or match.get("job_keywords", [])
 
-    best_resume = None
-    best_validation = None
+    best_artifact = None
+    best_score = None
 
-    for attempt in range(3):
+    for attempt in range(5):
         candidate_resume = _build_tailored_resume(profile, job, target_keywords, attempt)
-        validation = validate_tailored_resume(candidate_resume, profile, job)
+        resume_validation = validate_tailored_resume(candidate_resume, profile, job)
+        candidate_artifact = {
+            "job_id": job.get("id"),
+            "company": job.get("company"),
+            "title": job.get("title"),
+            "location": job.get("location"),
+            "source": job.get("source"),
+            "url": job.get("url"),
+            "match": match,
+            "validation": resume_validation,
+            "resume": candidate_resume,
+        }
+        packet_preview = prepare_application_packet(profile, job, candidate_artifact, persist=False)
+        combined_score = round(
+            (resume_validation["score"] * 0.6) + (packet_preview["packet_validation"]["score"] * 0.4)
+        )
+        candidate_artifact.update(packet_preview)
+        candidate_artifact["overall_validation"] = {
+            "passed": resume_validation["passed"] and packet_preview["packet_validation"]["passed"],
+            "score": combined_score,
+            "resume_score": resume_validation["score"],
+            "packet_score": packet_preview["packet_validation"]["score"],
+        }
 
-        if best_validation is None or validation["score"] > best_validation["score"]:
-            best_resume = candidate_resume
-            best_validation = validation
+        if best_artifact is None or combined_score > (best_score or -1):
+            best_artifact = candidate_artifact
+            best_score = combined_score
 
-        if validation["passed"]:
+        if candidate_artifact["overall_validation"]["passed"]:
             break
 
-    assert best_resume is not None
-    assert best_validation is not None
+    assert best_artifact is not None
 
-    destination_dir = Path(output_dir) if output_dir else GENERATED_DIR
-    destination_dir.mkdir(parents=True, exist_ok=True)
-    pdf_name = f"{job.get('id', 'job')}.pdf"
-    pdf_path = write_resume_pdf(destination_dir / pdf_name, best_resume)
+    artifact = dict(best_artifact)
+    artifact["created_at"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
-    artifact = {
-        "job_id": job.get("id"),
-        "company": job.get("company"),
-        "title": job.get("title"),
-        "location": job.get("location"),
-        "source": job.get("source"),
-        "url": job.get("url"),
-        "match": match,
-        "validation": best_validation,
-        "resume": best_resume,
-        "pdf_filename": pdf_path.name,
-        "pdf_path": str(pdf_path),
-        "created_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-    }
+    if render_documents:
+        destination_dir = Path(output_dir) if output_dir else GENERATED_DIR
+        destination_dir.mkdir(parents=True, exist_ok=True)
+        pdf_name = f"{job.get('id', 'job')}.pdf"
+        pdf_path = write_resume_pdf(destination_dir / pdf_name, best_artifact["resume"])
+        artifact["pdf_filename"] = pdf_path.name
+        artifact["pdf_path"] = str(pdf_path)
+        artifact.update(prepare_application_packet(profile, job, artifact, destination_dir, persist=True))
+    else:
+        artifact.setdefault("pdf_filename", "")
+        artifact.setdefault("pdf_path", "")
 
     if persist:
         return save_tailored_resume_artifact(artifact)

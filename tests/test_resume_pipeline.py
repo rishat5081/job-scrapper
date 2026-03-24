@@ -3,9 +3,15 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from jobintel.pdf_utils import write_resume_pdf
-from jobintel.resume_pipeline import build_resume_profile, score_job_against_profile, tailor_resume_for_job
+from jobintel.resume_pipeline import (
+    build_resume_profile,
+    extract_job_keywords,
+    score_job_against_profile,
+    tailor_resume_for_job,
+)
 
 
 def _chrome_works() -> bool:
@@ -33,6 +39,14 @@ def _chrome_works() -> bool:
 
 
 _HAS_CHROME = _chrome_works()
+
+
+def _fake_pdf_writer(output_path, _payload):
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("%PDF-1.4\n% fake\n", encoding="latin-1")
+    return path
+
 
 SAMPLE_RESUME = """
 Jane Engineer
@@ -109,6 +123,63 @@ class ResumePipelineTests(unittest.TestCase):
 
         self.assertGreater(strong["score"], weak["score"])
         self.assertIn("python", strong["matched_keywords"])
+
+    def test_extract_job_keywords_handles_nested_tags(self):
+        keywords = extract_job_keywords(
+            {
+                "title": "Platform Engineer",
+                "description": "Build AWS APIs",
+                "tags": ["python", ["aws", "docker"]],
+                "location": "Remote",
+            }
+        )
+        self.assertIn("aws", keywords)
+        self.assertIn("docker", keywords)
+
+    def test_adjacent_javascript_supports_typescript_job_without_false_claim(self):
+        profile = build_resume_profile(
+            SAMPLE_RESUME.replace(
+                "Python, FastAPI, Flask, PostgreSQL, Docker, Kubernetes, AWS, System Design, Leadership",
+                "JavaScript, Node.js, PostgreSQL, Docker, AWS",
+            ),
+            "resume.txt",
+        )
+        artifact = tailor_resume_for_job(
+            profile,
+            {
+                "id": "job-ts",
+                "company": "Example Corp",
+                "title": "Software Engineer (TypeScript/NodeJS)",
+                "location": "Remote",
+                "source": "LinkedIn Jobs",
+                "url": "https://example.com/jobs/ts",
+                "description": "",
+                "tags": ["linkedin", "jobspy"],
+            },
+            persist=False,
+            render_documents=False,
+        )
+        self.assertIn("typescript", artifact["validation"]["adjacent_keywords"])
+        self.assertNotIn("jobspy", artifact["match"]["job_keywords"])
+        self.assertIn("node.js", artifact["match"]["job_keywords"])
+
+    @patch("jobintel.resume_pipeline.write_resume_pdf", side_effect=_fake_pdf_writer)
+    @patch("jobintel.application_materials.write_cover_letter_pdf", side_effect=_fake_pdf_writer)
+    def test_tailoring_generates_full_application_packet_without_live_pdf_engine(self, _cover_writer, _resume_writer):
+        profile = build_resume_profile(SAMPLE_RESUME, "resume.txt")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            artifact = tailor_resume_for_job(profile, GOOD_JOB, output_dir=temp_dir, persist=False)
+
+            self.assertIn("cover_letter", artifact)
+            self.assertIn("draft_answers", artifact)
+            self.assertIn("autofill", artifact)
+            self.assertIn("application_status", artifact)
+            self.assertTrue(Path(artifact["pdf_path"]).exists())
+            self.assertTrue(Path(artifact["cover_letter"]["pdf_path"]).exists())
+            self.assertTrue(Path(artifact["draft_answers"]["markdown_path"]).exists())
+            self.assertTrue(artifact["autofill"]["payload"]["email"])
+            self.assertEqual(artifact["application_status"]["status"], "prepared")
 
     @unittest.skipUnless(_HAS_CHROME, "Headless Chrome not available")
     def test_tailoring_generates_pdf(self):
