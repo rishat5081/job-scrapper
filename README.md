@@ -1,34 +1,31 @@
-<div align="center">
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" />
+  <img src="https://img.shields.io/badge/Flask-3.1-000000?style=for-the-badge&logo=flask" />
+  <img src="https://img.shields.io/badge/Selenium-4.16-43B02A?style=for-the-badge&logo=selenium" />
+  <img src="https://img.shields.io/badge/Code_Style-Ruff-000000?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/9_Job_Boards-Integrated-F97316?style=for-the-badge" />
+  <img src="https://img.shields.io/github/actions/workflow/status/rishat5081/job-scrapper/ci.yml?style=for-the-badge&label=CI" />
+</p>
 
-# JobIntel - Job Intelligence System
-
-**AI-powered job scraping, resume matching, tailored resume generation, and application automation across 9 platforms.**
-
-[![CI](https://github.com/rishat5081/job-scrapper/actions/workflows/ci.yml/badge.svg)](https://github.com/rishat5081/job-scrapper/actions/workflows/ci.yml)
-[![Lint](https://github.com/rishat5081/job-scrapper/actions/workflows/lint.yml/badge.svg)](https://github.com/rishat5081/job-scrapper/actions/workflows/lint.yml)
-[![Security](https://github.com/rishat5081/job-scrapper/actions/workflows/security.yml/badge.svg)](https://github.com/rishat5081/job-scrapper/actions/workflows/security.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-3776AB.svg)](https://www.python.org/)
-[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
-
-</div>
+<h1 align="center">🔍 JobIntel — Job Intelligence System</h1>
+<p align="center"><strong>AI-powered job scraping, resume matching, tailored resume generation, and application automation across 9 platforms.</strong></p>
 
 ---
 
-## Overview
+## 🌟 Overview
 
 JobIntel is a governed job ingestion and resume tailoring system that:
 
-1. **Scrapes jobs** from 9 platforms (Remotive, WWR, RemoteOK, LinkedIn, Indeed, Glassdoor, Himalayas, Jobicy, Adzuna)
-2. **Parses resumes** into structured candidate profiles via multi-format extraction
-3. **Scores & ranks** each job against your profile using keyword overlap and role-family detection
-4. **Generates tailored resumes** with validation, keyword optimization, and PDF export
-5. **Prepares full application packets** with cover letters, draft interview answers, and autofill payloads
-6. **Automates form filling** via Selenium with ATS provider detection (Greenhouse, Lever, Workday, etc.)
-7. **Tracks application status** through the full lifecycle (prepared, applied, interview, offer)
-8. **Serves a modern dashboard** with dark mode, advanced filters, and real-time previews
+1. 🕷️ **Scrapes jobs** from 9 platforms (Remotive, WWR, RemoteOK, LinkedIn, Indeed, Glassdoor, Himalayas, Jobicy, Adzuna)
+2. 📄 **Parses resumes** into structured candidate profiles via multi-format extraction
+3. 📊 **Scores & ranks** each job against your profile using keyword overlap and role-family detection
+4. ✍️ **Generates tailored resumes** with validation, keyword optimization, and PDF export
+5. 📨 **Prepares full application packets** with cover letters, draft interview answers, and autofill payloads
+6. 🤖 **Automates form filling** via Selenium with ATS provider detection (Greenhouse, Lever, Workday, etc.)
+7. 📋 **Tracks application status** through the full lifecycle (prepared, applied, interview, offer)
+8. 🖥️ **Serves a modern dashboard** with dark mode, advanced filters, and real-time previews
 
-## Architecture
+## 🏗️ Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -57,7 +54,7 @@ JobIntel is a governed job ingestion and resume tailoring system that:
 └──────────────┘ └────────────┘ └────────────────┘
 ```
 
-## Active Sources (8 enabled)
+## 🌐 Active Sources (8 enabled)
 
 | Platform | Method | Auth | Data Quality |
 |----------|--------|------|-------------|
@@ -72,61 +69,61 @@ JobIntel is a governed job ingestion and resume tailoring system that:
 
 > **Adzuna** is also supported but requires `ADZUNA_APP_ID` and `ADZUNA_APP_KEY` environment variables (free signup).
 
-## Features
+## ✨ Features
 
-### Multi-Platform Scraping
+### 🕷️ Multi-Platform Scraping
 - 9 job board integrations with deduplication
 - Configurable source registry with compliance metadata
 - Per-source timeout enforcement via multiprocessing
 - LinkedIn/Indeed/Glassdoor via `python-jobspy` (no API keys needed)
 
-### Intelligent Matching
+### 🧠 Intelligent Matching
 - Keyword extraction with noise filtering and alias normalization
 - Role-family detection (DevOps, Backend, Full Stack, etc.)
 - Experience-weighted matching with adjacent skill evidence tracking
 
-### Resume Tailoring
+### ✍️ Resume Tailoring
 - Multi-format resume parsing (txt, md, doc, docx, rtf, odt, pdf)
 - Role-specific headline and summary generation
 - Keyword-optimized experience and skill selection with backfill
 - Multi-attempt validation loop (up to 5 iterations for best fit)
 
-### Application Packets
+### 📨 Application Packets
 - Context-aware cover letter generation
 - Draft interview answers (5 standard questions)
 - Autofill payload with field mapping for ATS forms
 - Combined validation scoring (resume + packet)
 
-### Application Automation
+### 🤖 Application Automation
 - Selenium-based form autofill for job applications
 - ATS provider detection (Greenhouse, Lever, Workday, Ashby, Workable, BambooHR)
 - Smart field matching via name, id, placeholder, aria-label attributes
 - Resume upload support
 
-### Application Tracking
+### 📋 Application Tracking
 - Full lifecycle status tracking: `prepared` > `ready_to_review` > `applied` > `interview` > `offer` / `rejected` / `archived`
 - Per-job status persistence with notes and timestamps
 
-### Modern Dashboard
+### 🖥️ Modern Dashboard
 - Glassmorphism UI with sidebar navigation
 - Dark/light theme with system preference detection
 - Advanced filters: salary, experience, date, job type, skills
 - Toast notifications, skeleton loading, animated counters
 - Responsive design with mobile hamburger menu
 
-### Advanced Filtering
+### 🔎 Advanced Filtering
 - Salary range parsing (`$30k-$50k`, `$90/hr`, `EUR30k`)
 - Experience level inference (junior/mid/senior/lead)
 - Date posted cutoffs (today, 3 days, week, month)
 - Job type, skills, and source filtering
 
-## Quick Start
+## ⚡ Quick Start
 
-### Prerequisites
+### 📋 Prerequisites
 - Python 3.11+
 - Google Chrome (for PDF generation and autofill, optional)
 
-### Installation
+### 📥 Installation
 
 ```bash
 # Clone the repository
@@ -142,7 +139,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Run
+### 🚀 Run
 
 ```bash
 # Bootstrap dependencies and start the server
@@ -158,7 +155,7 @@ PYTHONPATH=src python -m jobintel.api_server
 open http://localhost:8080
 ```
 
-### Daily Task Run
+### 📅 Daily Task Run
 
 ```bash
 # Scrape today's batch, rank relevant engineering jobs, generate tailored PDFs,
@@ -169,16 +166,16 @@ PYTHONPATH=src python scripts/run_today_tasks.py \
   --min-validation-score 70
 ```
 
-### Optional: Adzuna Integration
+### 🔗 Optional: Adzuna Integration
 
 ```bash
 export ADZUNA_APP_ID="your_app_id"
 export ADZUNA_APP_KEY="your_app_key"
 ```
 
-## API Reference
+## 🔌 API Reference
 
-### Core Endpoints
+### 🔗 Core Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -189,7 +186,7 @@ export ADZUNA_APP_KEY="your_app_key"
 | `GET` | `/api/scraped-jobs` | List jobs with filters and pagination |
 | `GET` | `/api/filter-options` | Available filter values (tags, types, sources) |
 
-### Resume & Tailoring Endpoints
+### ✍️ Resume & Tailoring Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -204,7 +201,7 @@ export ADZUNA_APP_KEY="your_app_key"
 | `GET` | `/api/generated-resumes/:filename` | Download a generated PDF |
 | `GET` | `/api/generated-files/:filename` | Download cover letters, draft answers, etc. |
 
-### Application Lifecycle Endpoints
+### 📋 Application Lifecycle Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -213,7 +210,7 @@ export ADZUNA_APP_KEY="your_app_key"
 | `POST` | `/api/jobs/:id/autofill` | Launch Selenium autofill session |
 | `GET` | `/api/application-tracker` | Full application tracker across all jobs |
 
-### Filter Parameters (`/api/scraped-jobs`)
+### 🔎 Filter Parameters (`/api/scraped-jobs`)
 
 | Parameter | Type | Example |
 |-----------|------|---------|
@@ -230,7 +227,7 @@ export ADZUNA_APP_KEY="your_app_key"
 | `page` | int | `1` |
 | `per_page` | int | `12` |
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 jobs/
@@ -293,7 +290,7 @@ jobs/
 └── SECURITY.md
 ```
 
-## Testing
+## 🧪 Testing
 
 ```bash
 # Run all tests
@@ -306,7 +303,7 @@ python -m pytest tests/ -v --cov=jobintel --cov-report=term-missing
 python -m pytest tests/test_job_scraper.py -v
 ```
 
-## Code Quality
+## 🔍 Code Quality
 
 ```bash
 # Lint with Ruff
@@ -322,7 +319,7 @@ bandit -r src/ -x ./venv,./tests
 mypy src/jobintel/ --ignore-missing-imports
 ```
 
-## CI/CD Pipelines
+## 🏗️ CI/CD Pipelines
 
 This project includes production-grade GitHub Actions workflows:
 
@@ -336,7 +333,7 @@ This project includes production-grade GitHub Actions workflows:
 | **Release** | Tag push (`v*`) | Auto-generates changelog from commits |
 | **Stale** | Daily schedule | Marks and closes stale issues/PRs |
 
-## Validation Rules
+## ✅ Validation Rules
 
 The tailoring engine does **not** invent unsupported claims. If a job description asks for skills not evidenced in the uploaded resume, the validator flags them as `unsupported` instead of fabricating them. Each generated artifact includes:
 
@@ -345,14 +342,23 @@ The tailoring engine does **not** invent unsupported claims. If a job descriptio
 - **Fit label**: `strong_alignment`, `partial_alignment`, or `insufficient_evidence`
 - **Adjacent keywords**: Skills inferred from related evidence (e.g., TypeScript from JavaScript)
 
-## Contributing
+## 🤝 Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
-## Security
+## 🔒 Security
 
 See [SECURITY.md](SECURITY.md) for vulnerability reporting.
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+<p align="center">
+  Built with 🐍 Python &nbsp;·&nbsp; 🌐 Flask &nbsp;·&nbsp; 🤖 Selenium &nbsp;·&nbsp; 🕷️ JobSpy
+</p>
+<p align="center">
+  <sub>Made by <a href="https://github.com/rishat5081">@rishat5081</a></sub>
+</p>
