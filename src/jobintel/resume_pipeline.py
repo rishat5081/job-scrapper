@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 import subprocess
 from collections import Counter
 from datetime import UTC, datetime
@@ -403,6 +404,9 @@ def _ocr_pdf(file_path: Path) -> str:
     image_path = Path("/private/tmp") / f"{_timestamp()}_{re.sub(r'[^A-Za-z0-9._-]+', '_', file_path.stem)}.png"
 
     try:
+        if not shutil.which("sips") or not shutil.which("tesseract"):
+            return ""
+
         render = subprocess.run(
             ["sips", "-s", "format", "png", str(file_path), "--out", str(image_path)],
             capture_output=True,
@@ -419,6 +423,8 @@ def _ocr_pdf(file_path: Path) -> str:
             check=False,
         )
         return ocr.stdout.strip()
+    except OSError:
+        return ""
     finally:
         if image_path.exists():
             image_path.unlink()
@@ -433,21 +439,34 @@ def extract_resume_text(path: str | Path) -> str:
     elif suffix in {".html", ".htm"}:
         text = _extract_html_text(file_path)
     elif suffix in {".doc", ".docx", ".rtf", ".odt"}:
-        result = subprocess.run(
-            ["textutil", "-convert", "txt", "-stdout", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        text = result.stdout
+        if shutil.which("textutil"):
+            result = subprocess.run(
+                ["textutil", "-convert", "txt", "-stdout", str(file_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            text = result.stdout
+        else:
+            text = file_path.read_bytes().decode("utf-8", errors="ignore")
     elif suffix == ".pdf":
-        result = subprocess.run(
-            ["strings", str(file_path)],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        primary_text = result.stdout
+        primary_text = ""
+        if shutil.which("pdftotext"):
+            result = subprocess.run(
+                ["pdftotext", "-layout", str(file_path), "-"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            primary_text = result.stdout
+        elif shutil.which("strings"):
+            result = subprocess.run(
+                ["strings", str(file_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            primary_text = result.stdout
         candidates = [primary_text]
 
         companion = _find_html_companion(file_path)
@@ -503,8 +522,8 @@ def _extract_contact(header_lines: list[str], full_text: str) -> dict:
 
     email_match = re.search(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", header_blob, re.I)
     phone_match = re.search(r"(\+?\d[\d\s().-]{7,}\d)", header_blob)
-    linkedin_match = re.search(r"(https?://(?:www\.)?linkedin\.com/[^\s|]+)", header_blob, re.I)
-    github_match = re.search(r"(https?://(?:www\.)?github\.com/[^\s|]+)", header_blob, re.I)
+    linkedin_match = re.search(r"((?:https?://)?(?:www\.)?linkedin\.com/[^\s|]+)", header_blob, re.I)
+    github_match = re.search(r"((?:https?://)?(?:www\.)?github\.com/[^\s|]+)", header_blob, re.I)
 
     location = ""
     for line in header_lines[:4]:
@@ -536,10 +555,36 @@ def _extract_contact(header_lines: list[str], full_text: str) -> dict:
     return {
         "email": email_match.group(0) if email_match else "",
         "phone": phone_match.group(1).strip() if phone_match else "",
-        "linkedin": linkedin_match.group(1) if linkedin_match else "",
-        "github": github_match.group(1) if github_match else "",
+        "linkedin": (
+            linkedin_match.group(1)
+            if not linkedin_match or linkedin_match.group(1).startswith("http")
+            else f"https://{linkedin_match.group(1)}"
+        ),
+        "github": (
+            github_match.group(1)
+            if not github_match or github_match.group(1).startswith("http")
+            else f"https://{github_match.group(1)}"
+        ),
         "location": location,
     }
+
+
+def _clean_header_line(line: str, contact: dict) -> str:
+    cleaned = line
+    for value in [
+        contact.get("email", ""),
+        contact.get("phone", ""),
+        contact.get("linkedin", ""),
+        contact.get("github", ""),
+        contact.get("location", ""),
+    ]:
+        if value:
+            cleaned = cleaned.replace(value, " ")
+            cleaned = cleaned.replace(value.removeprefix("https://"), " ")
+            cleaned = cleaned.replace(value.removeprefix("http://"), " ")
+    cleaned = re.sub(r"\b\d{1,2}/\d{1,2}/\d{4},?\s*\d{1,2}:\d{2}\b", " ", cleaned)
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned.strip(" |-")
 
 
 def _clean_items(lines: list[str], limit: int = 12) -> list[str]:
@@ -643,63 +688,118 @@ def build_resume_profile(text: str, source_filename: str = "", source_path: str 
 
     sections = _split_sections(text)
     header_lines = sections.get("header", [])[:8]
+    contact = _extract_contact(header_lines, text)
+    cleaned_header_lines = [_clean_header_line(line, contact) for line in header_lines]
     name = "Candidate"
 
-    for line in header_lines:
-        if "@" in line or "linkedin" in line.lower() or "github" in line.lower():
+    for line in cleaned_header_lines:
+        lowered = line.lower()
+        if not line:
+            continue
+        if "@" in line or "linkedin" in lowered or "github" in lowered:
             continue
         if any(char.isdigit() for char in line):
             continue
+        if "," in line:
+            continue
+        if len(line.split()) > 5:
+            continue
+        letters = [char for char in line if char.isalpha()]
+        if letters and all(char.isupper() for char in letters):
+            name = _normalize_display_case(line)
+            break
         if 1 < len(line.split()) <= 4:
             name = _normalize_display_case(line)
             break
 
+    if name == "Candidate":
+        for raw_line in cleaned_header_lines[:12]:
+            line = raw_line.strip()
+            lowered = line.lower()
+            if not line:
+                continue
+            if "@" in line or "linkedin" in lowered or "github" in lowered:
+                continue
+            if any(char.isdigit() for char in line):
+                continue
+            if "," in line:
+                continue
+            if any(term in lowered for term in ["engineer", "developer", "architect", "software"]):
+                continue
+            if 1 < len(line.split()) <= 4:
+                name = _normalize_display_case(line)
+                break
+
     headline = ""
-    for line in header_lines:
+    for line in cleaned_header_lines:
         if line == name:
             continue
-        if "@" in line or "http" in line.lower():
+        lowered = line.lower()
+        if not line:
+            continue
+        if "@" in line or "http" in lowered or "linkedin" in lowered or "github" in lowered:
             continue
         if any(char.isdigit() for char in line):
             continue
         if name.lower() in line.lower():
             continue
         if not any(
-            term in line.lower()
+            term in lowered
             for term in ["engineer", "developer", "architect", "software", "full-stack", "backend", "frontend"]
         ):
             continue
         headline = _normalize_display_case(line)
         break
 
+    if headline and contact.get("linkedin"):
+        headline = re.sub(r"(?:https?://)?(?:www\.)?linkedin\.com/\S+", "", headline, flags=re.I).strip()
+    if not headline:
+        for raw_line in cleaned_header_lines[:16]:
+            line = raw_line.strip()
+            lowered = line.lower()
+            if not line or line == name:
+                continue
+            if any(char.isdigit() for char in line):
+                continue
+            if "@" in line or "linkedin" in lowered or "github" in lowered:
+                continue
+            if any(
+                term in lowered
+                for term in ["engineer", "developer", "architect", "software", "full-stack", "backend", "frontend"]
+            ):
+                headline = _normalize_display_case(line)
+                break
+
     summary_items = sections.get("summary", [])
     summary = " ".join(summary_items[:3]).strip()
     if not summary:
-        summary_paragraph = ""
-        capture = False
-        collected = []
-        for raw_line in text.splitlines():
+        summary_candidates = []
+        for raw_line in text.splitlines()[:20]:
             stripped = raw_line.strip()
             if not stripped:
                 continue
             lower = stripped.lower()
             if "work experience" in lower:
                 break
-            if capture:
-                collected.append(stripped)
-            if re.search(r"@\w|linkedin\.com|\+\d", stripped, re.I):
-                capture = True
-        if collected:
-            summary_paragraph = " ".join(collected[:5]).strip()
-
-        fallback = [line for line in header_lines[1:5] if "@" not in line and "http" not in line.lower()]
-        summary = summary_paragraph or " ".join(fallback[:2]).strip()
+            cleaned = _clean_header_line(stripped, contact)
+            if not cleaned:
+                continue
+            if len(cleaned.split()) < 8:
+                continue
+            if any(term in cleaned.lower() for term in ["work experience", "education", "skills"]):
+                continue
+            summary_candidates.append(cleaned)
+        if summary_candidates:
+            summary = " ".join(summary_candidates[:3]).strip()
+        else:
+            fallback = [line for line in cleaned_header_lines[1:5] if line]
+            summary = " ".join(fallback[:2]).strip()
 
     profile = {
         "name": name,
         "headline": headline,
         "summary": summary,
-        "contact": _extract_contact(header_lines, text),
+        "contact": contact,
         "skills": _extract_skills(sections, text),
         "experience": _clean_items(sections.get("experience", []) or sections.get("header", []), limit=10),
         "work_history": [],

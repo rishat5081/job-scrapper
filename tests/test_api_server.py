@@ -1,6 +1,7 @@
 """Tests for api_server.py Flask endpoints."""
 
 import json
+from io import BytesIO
 import unittest
 from unittest.mock import patch
 
@@ -203,6 +204,18 @@ class TestAPIServer(unittest.TestCase):
         data = json.loads(response.data)
         self.assertEqual(response.status_code, 400)
         self.assertFalse(data["success"])
+
+    def test_upload_returns_json_error_when_resume_parsing_fails(self):
+        with patch("jobintel.api_server.extract_resume_text", side_effect=ValueError("Could not parse resume.")):
+            response = self.client.post(
+                "/api/profile/upload",
+                data={"resume": (BytesIO(b"%PDF-1.4 fake"), "resume.pdf")},
+                content_type="multipart/form-data",
+            )
+        data = json.loads(response.data)
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error"], "Could not parse resume.")
 
     def test_cors_headers(self):
         response = self.client.get("/api/health")

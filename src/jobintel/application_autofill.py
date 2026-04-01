@@ -7,10 +7,18 @@ import contextlib
 import os
 from datetime import UTC, datetime
 
-from selenium import webdriver
-from selenium.common.exceptions import InvalidSessionIdException, WebDriverException
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
+try:
+    from selenium import webdriver
+    from selenium.common.exceptions import InvalidSessionIdException, WebDriverException
+    from selenium.webdriver.chrome.options import Options
+    from selenium.webdriver.common.by import By
+except ModuleNotFoundError as exc:
+    webdriver = None
+    InvalidSessionIdException = WebDriverException = Exception
+    Options = By = None
+    _SELENIUM_IMPORT_ERROR = exc
+else:
+    _SELENIUM_IMPORT_ERROR = None
 
 PROVIDER_PATTERNS = {
     "greenhouse": ["greenhouse.io", "boards.greenhouse.io"],
@@ -161,6 +169,23 @@ def launch_autofill_session(job: dict, payload: dict) -> dict:
     url = job.get("url", "")
     provider = detect_application_provider(url)
     headless = _is_headless_fallback()
+
+    if webdriver is None or Options is None or By is None:
+        return {
+            "success": False,
+            "provider": provider,
+            "url": url,
+            "headless": headless,
+            "filled_fields": [],
+            "uploaded_files": [],
+            "warnings": [],
+            "opened_at": _timestamp(),
+            "message": (
+                f"Selenium is not installed in this environment: {_SELENIUM_IMPORT_ERROR}. "
+                "Install the browser automation dependencies before launching autofill."
+            ),
+        }
+
     options = Options()
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")

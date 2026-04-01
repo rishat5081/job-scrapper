@@ -10,8 +10,7 @@ import mimetypes
 
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
-from jobintel import TEMPLATES_DIR
-from jobintel.application_autofill import launch_autofill_session
+from jobintel import PROJECT_ROOT, TEMPLATES_DIR
 from jobintel.application_materials import (
     STATUS_OPTIONS,
     get_application_status,
@@ -35,6 +34,7 @@ from jobintel.resume_pipeline import (
 from jobintel.source_registry import list_sources
 
 app = Flask(__name__)
+FRONTEND_DIST = PROJECT_ROOT / "frontend" / "dist"
 
 
 def _json_error(message: str, status_code: int = 400):
@@ -90,9 +90,25 @@ def _get_artifact_by_job_id(job_id: str) -> dict | None:
     return None
 
 
+def _serve_frontend():
+    if FRONTEND_DIST.exists():
+        return send_from_directory(FRONTEND_DIST, "index.html")
+    return send_from_directory(TEMPLATES_DIR, "live_dashboard.html")
+
+
 @app.route("/")
 def index():
-    return send_from_directory(TEMPLATES_DIR, "live_dashboard.html")
+    return _serve_frontend()
+
+
+@app.route("/dashboard")
+def dashboard():
+    return _serve_frontend()
+
+
+@app.route("/assets/<path:asset_path>")
+def frontend_assets(asset_path: str):
+    return send_from_directory(FRONTEND_DIST / "assets", asset_path)
 
 
 @app.route("/automation-harness")
@@ -131,10 +147,15 @@ def upload_profile():
     if not uploaded.filename:
         return _json_error("Resume filename is missing.")
 
-    saved_path = save_uploaded_resume(uploaded.filename, uploaded.read())
-    text = extract_resume_text(saved_path)
-    profile = build_resume_profile(text, saved_path.name, saved_path)
-    save_resume_profile(profile)
+    try:
+        saved_path = save_uploaded_resume(uploaded.filename, uploaded.read())
+        text = extract_resume_text(saved_path)
+        profile = build_resume_profile(text, saved_path.name, saved_path)
+        save_resume_profile(profile)
+    except ValueError as exc:
+        return _json_error(str(exc), 400)
+    except Exception:
+        return _json_error("Resume upload failed while parsing the file. Try a text-based PDF or another format.", 500)
 
     jobs = _jobs_with_matches(load_scraped_jobs())
     return jsonify(
@@ -310,6 +331,8 @@ def autofill_job(job_id: str):
     payload = autofill.get("payload", {})
     if not payload:
         return _json_error("Application packet is missing autofill data.", 409)
+
+    from jobintel.application_autofill import launch_autofill_session
 
     result = launch_autofill_session(job, payload)
     status_update = {"last_autofill_at": result.get("opened_at"), "last_autofill_success": result.get("success", False)}

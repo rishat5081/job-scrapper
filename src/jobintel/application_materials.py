@@ -285,6 +285,7 @@ def validate_application_packet(job: dict, artifact: dict, packet: dict) -> dict
     draft_answers = packet.get("draft_answers", {}).get("items", [])
     combined_answers = " ".join(item.get("answer", "") for item in draft_answers)
     terms = _alignment_terms(job, artifact, limit=6)
+    evidence_lines = _evidence_lines(artifact.get("resume", {}) or {}, artifact, limit=3)
 
     issues = []
     warnings = []
@@ -305,6 +306,19 @@ def validate_application_packet(job: dict, artifact: dict, packet: dict) -> dict
         issues.append("Cover letter does not name the target role.")
     if company and company.lower() not in cover_letter_text.lower():
         warnings.append("Cover letter does not mention the company name.")
+
+    normalized_cover = _normalize_text(cover_letter_text).lower()
+    normalized_answers = _normalize_text(combined_answers).lower()
+    evidenced_cover_lines = [
+        line for line in evidence_lines if _normalize_text(line).rstrip(".").lower() in normalized_cover
+    ]
+    evidenced_answer_lines = [
+        line for line in evidence_lines if _normalize_text(line).rstrip(".").lower() in normalized_answers
+    ]
+    if evidence_lines and not evidenced_cover_lines:
+        issues.append("Cover letter does not include resume-backed evidence for the claimed fit.")
+    if evidence_lines and not evidenced_answer_lines:
+        warnings.append("Draft answers do not reuse any concrete resume evidence.")
 
     cover_score, cover_terms = _coverage_score(cover_letter_text, terms)
     answers_score, answer_terms = _coverage_score(combined_answers, terms)
@@ -328,6 +342,9 @@ def validate_application_packet(job: dict, artifact: dict, packet: dict) -> dict
         "cover_letter_terms": cover_terms,
         "draft_answers_score": answers_score,
         "draft_answers_terms": answer_terms,
+        "evidence_lines": evidence_lines,
+        "cover_letter_evidence": evidenced_cover_lines,
+        "draft_answers_evidence": evidenced_answer_lines,
         "issues": issues,
         "warnings": warnings,
     }
